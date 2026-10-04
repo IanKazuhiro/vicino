@@ -1,0 +1,29 @@
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editores e IDEs
+.vscode/
+.idea/
+*.iml
+*.code-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs e temporários
+*.log
+logs/
+*.tmp
+*.swp
+
+# Build (cada módulo mantém o seu .gitignore, mas reforçamos aqui)
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
