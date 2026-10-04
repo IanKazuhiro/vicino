@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     boolean existsByEmail(String email);
-    List<Usuario> findByunidadeIdAndPerfil(Long unidadeId, PerfilEnum perfil);  
+    List<Usuario> findByUnidadeIdAndPerfil(Long unidadeId, PerfilEnum perfil);  
     Optional<Usuario> findByEmail(String email);
     List<Usuario> findByNome(String nome);
 }
