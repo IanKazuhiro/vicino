@@ -1,7 +1,9 @@
 # 0003 - Hash de senha com BCrypt antes da autenticação completa
 
-- **Status:** aceita
+- **Status:** aceita; a parte provisória (usar só o `spring-security-crypto`) foi encerrada pelo [ADR 0005](0005-autenticacao-jwt.md)
 - **Data:** 2026-10-04
+
+> **Atualização (2026-10-05):** a autenticação foi implementada. O `spring-security-crypto` foi trocado pelo `spring-boot-starter-security-oauth2-resource-server`, e os endpoints agora exigem token. O uso do BCrypt e do bean `PasswordEncoder` continua igual.
 
 ## Contexto
 
