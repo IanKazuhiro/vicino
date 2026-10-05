@@ -16,6 +16,8 @@ O Vicino centraliza o **agendamento de espaços comuns** e a **liberação de vi
 | Porteiro | Consultar visitantes autorizados e registrar entrada e saída |
 | Síndico / administração | Cadastrar espaços e regras, aprovar reservas quando exigido, gerenciar moradores e unidades |
 
+No sistema, esses atores correspondem aos perfis `MORADOR`, `PORTARIA`, `SINDICO` e `ADMINISTRADOR`. As permissões de cada um estão no [ADR 0004](0004-perfis-e-permissoes.md).
+
 ## Escopo do MVP
 
 **Entra:**
@@ -39,6 +41,11 @@ O Vicino centraliza o **agendamento de espaços comuns** e a **liberação de vi
 - Aplicação web responsiva, usada em celular e desktop
 - O porteiro precisa de uma tela rápida e simples
 - O sistema guarda dados pessoais de visitantes, então precisa respeitar a LGPD
+
+## Perguntas respondidas
+
+- **Quem pode cadastrar blocos, unidades e usuários?** Síndico e administrador; morador e portaria apenas consultam ([ADR 0004](0004-perfis-e-permissoes.md)).
+- **Morador precisa estar vinculado a uma unidade?** Sim. Os demais perfis podem não ter unidade.
 
 ## Perguntas em aberto
 
