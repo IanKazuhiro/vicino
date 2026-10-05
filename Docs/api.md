@@ -1,4 +1,4 @@
-# API REST
+ # API REST
 
 Referência dos endpoints disponíveis. Base local: `http://localhost:8080`.
 

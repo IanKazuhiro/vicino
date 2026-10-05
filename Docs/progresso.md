@@ -10,7 +10,7 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 ## Histórico de commits
 
-### Autenticação com JWT (2026-10-05)
+### `a1963a8` (2026-10-05): autenticação com JWT
 
 - **Dependência:** `spring-security-crypto` trocado por `spring-boot-starter-security-oauth2-resource-server`.
 - **`SecurityConfig`:**
