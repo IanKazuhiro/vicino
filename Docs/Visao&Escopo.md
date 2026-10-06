@@ -46,12 +46,12 @@ No sistema, esses atores correspondem aos perfis `MORADOR`, `PORTARIA`, `SINDICO
 
 - **Quem pode cadastrar blocos, unidades e usuários?** Síndico e administrador; morador e portaria apenas consultam ([ADR 0004](0004-perfis-e-permissoes.md)).
 - **Morador precisa estar vinculado a uma unidade?** Sim. Os demais perfis podem não ter unidade.
+- **Quais regras valem para cada espaço?** São configuradas por espaço pelo síndico ou administrador: horário de funcionamento, duração mínima e máxima, antecedência mínima e máxima e limite de reservas por unidade ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
+- **Quais espaços exigem aprovação do síndico?** Também é configurável por espaço, com o campo `exigeAprovacao`.
+- **Morador inadimplente pode reservar?** A regra fica fora do MVP, porque o controle financeiro não faz parte do escopo.
 
 ## Perguntas em aberto
 
-- Quais regras valem para cada espaço (antecedência mínima e máxima, duração, limite de reservas por unidade)?
-- Quais espaços exigem aprovação do síndico?
-- Morador inadimplente pode reservar?
 - Visitante tem validade por data e hora, ou por tempo de permanência?
 - Quais dados do visitante são obrigatórios (nome, documento, placa)?
 - Por quanto tempo os dados de visitantes são mantidos?

@@ -4,11 +4,34 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 ## Estado atual
 
-- **Back-end:** cadastro de blocos, unidades e usuários funcionando (criar, listar e buscar por id), testado manualmente no Postman.
-- **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
+- **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id) e de **espaços comuns** (criar, editar, listar e buscar por id), testados manualmente no Postman.
+- **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
+
+### Espaços comuns (2026-10-06)
+
+- **Migration V6** (`V6__criar_espacos.sql`): tabela `espaco`, com nome único e constraints `CHECK` para horário, duração, antecedência e limite por unidade.
+- **Entidade `Espaco`** com horário de funcionamento (`LocalTime`), duração mínima e máxima, antecedência mínima e máxima, limite de reservas por unidade, `exigeAprovacao` e `ativo`.
+- **`EspacoRepository`** com `existsByNome` e `existsByNomeAndIdNot` (usado na edição).
+- **`EspacoRequest` e `EspacoResponse`**.
+- **`EspacoService`:**
+  - criar e atualizar com nome único (409);
+  - `validarRegras`: abertura antes do fechamento, duração mínima ≤ máxima, duração máxima dentro do horário e antecedência mínima < máxima (400);
+  - atualização via *dirty checking*, sem `save()`;
+  - listagem em ordem alfabética.
+- **`EspacoController`:** `POST /espacos`, `PUT /espacos/{id}` (primeiro endpoint de edição do projeto), `GET /espacos` e `GET /espacos/{id}`.
+- **`SecurityConfig`:** `POST /espacos` e `PUT /espacos/*` só para `SINDICO` e `ADMINISTRADOR`.
+- **`application.properties`:** `spring.web.error.include-message=always`, para que os erros tragam o motivo no campo `message`.
+- **Documentação:** ADR 0006 (espaços e janela de reserva), revisão do ADR 0001 (pacotes por camada), `api.md` e README.
+- Testado no Postman: criação (201), nome repetido (409), as quatro regras do `validarRegras` (400), edição sem trocar o nome (200), edição com nome de outro espaço (409), espaço inexistente (404), POST e PUT por morador (403) e consultas por morador (200).
+
+**Incidente durante o desenvolvimento:** a V6 foi salva vazia com a aplicação rodando, e o devtools reiniciou a aplicação, registrando a V6 com checksum 0 sem criar a tabela. Corrigido localmente removendo a linha da V6 do `flyway_schema_history` e rodando a migration de novo. A V3 está vazia pelo mesmo motivo. **Regra:** escrever migrations com a aplicação parada.
+
+### `9ce95c0` (2026-10-05): hash do commit de autenticação no progresso
+
+- Registro do hash `a1963a8` neste arquivo.
 
 ### `a1963a8` (2026-10-05): autenticação com JWT
 
@@ -63,7 +86,6 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 - [ ] **Tamanho do nome do bloco desalinhado:** a coluna tem 255 caracteres (V1), a entidade `Bloco` declara 50 e o `BlocoRequest` aceita até 100. Escolher um valor único e alinhar os três (a mudança no banco exige uma nova migration).
 - [ ] **Mensagem de 409 do `BlocoService`:** falta um espaço entre o texto e o nome do bloco (`"...nome." + nome`).
 - [ ] **`BlocoService` sem `readOnly = true`** nas consultas, ao contrário de Unidade e Usuário.
-- [ ] **Estrutura de pacotes vs. [ADR 0001](0001-monolito-modular.md):** o ADR prevê módulos por domínio, mas o código está organizado por camada (`controller`, `service`, `model`, ...). Decidir se o ADR será revisto ou se o código será reorganizado.
 - [ ] **Erros de validação (400)** saem no formato padrão do Spring. Avaliar um tratamento global com `@RestControllerAdvice` para padronizar as mensagens.
 - [ ] **Sem testes automatizados** além do teste de contexto gerado pelo Spring. O teste de contexto agora também depende do `JWT_SECRET` configurado.
 - [ ] **Respostas 401 e 403 sem corpo:** padronizar junto com o tratamento global de erros.
@@ -72,8 +94,9 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 - [ ] **Sem refresh token:** depois de 60 minutos é preciso logar de novo.
 - [ ] **Sem endpoint para o usuário consultar os próprios dados** (por exemplo, `GET /usuarios/me`), útil para o front-end saber quem está logado.
 
+- [ ] **`GET /espacos` lista também os inativos.** Para o morador, o ideal é ver só os ativos; avaliar no módulo de reservas.
+- [ ] **Janela de reserva não atravessa a meia-noite** e vale igual para todos os dias da semana ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
 ## Próximos passos
 
-1. Cadastro de **espaços comuns** e suas regras.
-2. **Reservas**, com bloqueio de conflito de horário.
-3. **Visitantes**: autorização pelo morador e validação pela portaria.
+1. **Reservas**, com bloqueio de conflito de horário e aplicação das regras de cada espaço (horário, duração, antecedência, limite por unidade e aprovação).
+2. **Visitantes**: autorização pelo morador e validação pela portaria.

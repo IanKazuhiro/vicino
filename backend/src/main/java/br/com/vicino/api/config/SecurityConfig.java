@@ -39,8 +39,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
             .requestMatchers("/actuator/health").permitAll()
-            .requestMatchers(HttpMethod.POST, "/blocos", "/unidades", "/usuarios").hasAnyRole("SINDICO", "ADMINISTRADOR")
             .requestMatchers("/error").permitAll()
+            .requestMatchers(HttpMethod.POST, "/blocos", "/unidades", "/usuarios", "/espacos").hasAnyRole("SINDICO", "ADMINISTRADOR")
+            .requestMatchers(HttpMethod.PUT, "/espacos/*").hasAnyRole("SINDICO", "ADMINISTRADOR")
             .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth
             .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));

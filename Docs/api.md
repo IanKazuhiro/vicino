@@ -1,4 +1,4 @@
- # API REST
+# API REST
 
 Referência dos endpoints disponíveis. Base local: `http://localhost:8080`.
 
@@ -10,6 +10,8 @@ Referência dos endpoints disponíveis. Base local: `http://localhost:8080`.
   - **400** para dados inválidos (validação do DTO ou regra de negócio)
   - **404** para recurso não encontrado
   - **409** para conflito, como duplicidade
+- O corpo desses erros traz o motivo no campo `message` (propriedade `spring.web.error.include-message=always`). Em desenvolvimento, o devtools também inclui o campo `trace` com o stack trace; isso não acontece na aplicação empacotada.
+- Edição usa **PUT** com o recurso completo e devolve **200** com o recurso atualizado.
 - Erros de autenticação e autorização (sem corpo na resposta):
   - **401** sem token, ou com token inválido, adulterado ou expirado
   - **403** com token válido, mas sem o perfil exigido
@@ -62,7 +64,8 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
 
 | Operação | Perfis |
 |---|---|
-| `POST` em `/blocos`, `/unidades` e `/usuarios` | `SINDICO`, `ADMINISTRADOR` |
+| `POST` em `/blocos`, `/unidades`, `/usuarios` e `/espacos` | `SINDICO`, `ADMINISTRADOR` |
+| `PUT` em `/espacos/{id}` | `SINDICO`, `ADMINISTRADOR` |
 | `GET` em qualquer rota | Qualquer usuário autenticado |
 
 ## Blocos
@@ -136,6 +139,74 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
   "email": "ana@exemplo.com",
   "perfil": "MORADOR",
   "unidadeId": 1,
+  "ativo": true
+}
+```
+
+## Espaços
+
+Regras e motivação no [ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md).
+
+| Método | Rota | Acesso | Descrição | Respostas |
+|---|---|---|---|---|
+| POST | `/espacos` | `SINDICO`, `ADMINISTRADOR` | Cria um espaço | 201, 400, 401, 403, 409 (nome repetido) |
+| PUT | `/espacos/{id}` | `SINDICO`, `ADMINISTRADOR` | Atualiza um espaço (corpo completo) | 200, 400, 401, 403, 404, 409 (nome de outro espaço) |
+| GET | `/espacos` | Autenticado | Lista os espaços em ordem alfabética, inclusive os inativos | 200, 401 |
+| GET | `/espacos/{id}` | Autenticado | Busca um espaço | 200, 401, 404 |
+
+**Requisição (POST e PUT)**
+```json
+{
+  "nome": "Quadra",
+  "descricao": "Quadra poliesportiva",
+  "horaAbertura": "08:00",
+  "horaFechamento": "22:00",
+  "duracaoMinimaMinutos": 60,
+  "duracaoMaximaMinutos": 60,
+  "antecedenciaMinimaHoras": 2,
+  "antecedenciaMaximaDias": 15,
+  "limiteReservasPorUnidade": 2,
+  "exigeAprovacao": false,
+  "ativo": true
+}
+```
+
+| Campo | Regra |
+|---|---|
+| `nome` | Obrigatório, até 100 caracteres, único |
+| `descricao` | Opcional, até 500 caracteres |
+| `horaAbertura`, `horaFechamento` | Obrigatórios, formato `"HH:mm"`. A abertura deve ser anterior ao fechamento (a janela não atravessa a meia-noite). |
+| `duracaoMinimaMinutos` | Obrigatório, maior que zero, menor ou igual à máxima |
+| `duracaoMaximaMinutos` | Obrigatório, maior que zero, e precisa caber no horário de funcionamento |
+| `antecedenciaMinimaHoras` | Obrigatório, zero ou mais, e menor que a antecedência máxima |
+| `antecedenciaMaximaDias` | Obrigatório, maior que zero |
+| `limiteReservasPorUnidade` | Obrigatório, maior que zero. Conta as reservas futuras da unidade naquele espaço. |
+| `exigeAprovacao` | Obrigatório. Se `true`, as reservas ficam pendentes até o síndico aprovar. |
+| `ativo` | Obrigatório. `false` desativa o espaço sem apagá-lo. |
+
+**Exemplos de 400 por regra de negócio**
+
+| Situação | Mensagem |
+|---|---|
+| Abertura `22:00`, fechamento `08:00` | O horário de abertura deve ser anterior ao de fechamento. |
+| Duração mínima 90, máxima 60 | A duração mínima não pode ser maior que a duração máxima. |
+| Horário `08:00`–`10:00`, duração máxima 180 | A duração máxima (180 min) não cabe no horário de funcionamento (120 min). |
+| Antecedência mínima 48 h, máxima 1 dia | A antecedência mínima deve ser menor que a antecedência máxima. |
+
+**Resposta**: o mesmo formato da requisição, com o `id`.
+```json
+{
+  "id": 1,
+  "nome": "Quadra",
+  "descricao": "Quadra poliesportiva",
+  "horaAbertura": "08:00:00",
+  "horaFechamento": "22:00:00",
+  "duracaoMinimaMinutos": 60,
+  "duracaoMaximaMinutos": 60,
+  "antecedenciaMinimaHoras": 2,
+  "antecedenciaMaximaDias": 15,
+  "limiteReservasPorUnidade": 2,
+  "exigeAprovacao": false,
   "ativo": true
 }
 ```
