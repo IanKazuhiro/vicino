@@ -6,9 +6,50 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id) e de **espaços comuns** (criar, editar, listar e buscar por id), testados manualmente no Postman.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
+- **Em andamento:** módulo de **reservas** (parte 1 de 2). Banco, entidade, repository e DTOs prontos; regras de negócio, endpoints e segurança na parte 2.
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
+
+### Reservas, parte 1 (2026-10-07)
+
+Base do módulo de reservas, ainda sem endpoints. Decisões do módulo:
+- **Quem reserva:** `MORADOR` para a própria unidade; `SINDICO` e `ADMINISTRADOR` para qualquer unidade, e nesse caso a reserva já nasce `CONFIRMADA`. A `PORTARIA` não reserva.
+- **Ocupação:** reserva `PENDENTE` bloqueia o horário até o síndico decidir; `RECUSADA` e `CANCELADA` liberam.
+- **Período:** a reserva começa e termina no mesmo dia, com fim exclusivo (08:00–09:00 e 09:00–10:00 não conflitam).
+- **Limite:** o limite por unidade conta as reservas futuras `PENDENTE` e `CONFIRMADA`.
+- **Cancelamento:** o morador cancela só até a antecedência mínima do espaço.
+- **Agenda:** mostra os horários ocupados sem identificar a unidade (LGPD).
+- **Fuso:** `America/Manaus`.
+
+Feito nesta parte:
+- **Fuso e relógio:** propriedade `vicino.fuso-horario=America/Manaus` e `ClockConfig` com um bean `Clock`. Todo "agora" do módulo usa `LocalDateTime.now(clock)`, para não depender do fuso da máquina (o banco local está em `America/La_Paz` e o Railway roda em UTC).
+- **`StatusReservaEnum`:** `PENDENTE`, `CONFIRMADA`, `RECUSADA` e `CANCELADA`.
+- **Migration V7** (`V7__criar_reserva.sql`):
+  - extensão `btree_gist`;
+  - tabela `reserva` com espaço, unidade, `criado_por`, `inicio` e `fim` (`TIMESTAMP` sem fuso, em hora do condomínio), status e `criado_em`;
+  - `CHECK` de período e de status;
+  - constraint **`EXCLUDE`** `ex_reserva_sem_conflito`, que faz o próprio PostgreSQL impedir reservas ativas sobrepostas no mesmo espaço, mesmo com requisições simultâneas.
+- **Entidade `Reserva`:** três `@ManyToOne` `LAZY` (espaço, unidade e `criadoPor`), `LocalDateTime` para o período, status como texto e `criadoEm` com `@PrePersist`.
+- **`ReservaRepository`:**
+  - consultas derivadas para conflito de horário, limite por unidade, "minhas reservas" e agenda do dia;
+  - `buscar` com `@Query` em JPQL e filtros opcionais, para a listagem do síndico. É a primeira consulta escrita à mão no projeto.
+- **DTOs:** `ReservaRequest`, `ReservaResponse` (com a unidade como texto, por exemplo "Bloco A - 101") e `AgendaItemResponse` (sem dados da unidade).
+- **Esqueletos vazios:** `ReservaService` e `ReservaController`.
+
+**Para retomar (parte 2):**
+1. Corrigir o `ReservaRequest`: o campo `id` deve se chamar `espacoId`.
+2. No `ReservaService`, trocar o import `jakarta.transaction.Transactional` por `org.springframework.transaction.annotation.Transactional`.
+3. Escrever o `ReservaService`:
+   - **7a:** `criar`, com as validações de usuário, unidade, espaço, janela, antecedência, limite e conflito, e o `saveAndFlush` tratando a constraint `EXCLUDE`;
+   - **7b:** `aprovar`, `recusar` e `cancelar`;
+   - **7c:** `minhas`, `listar` e `agenda`.
+4. Escrever o `ReservaController` e as regras no `SecurityConfig`.
+5. Testar no Postman, documentar (ADR 0007, `api.md`, README) e commitar.
+
+### `aaab907` (2026-10-06): hash do commit de espaços no progresso
+
+- Registro do hash `7a660cb` neste arquivo.
 
 ### `7a660cb` (2026-10-06): espaços comuns
 
@@ -98,4 +139,5 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 - [ ] **Janela de reserva não atravessa a meia-noite** e vale igual para todos os dias da semana ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
 ## Próximos passos
 
-1. **Reservas**, com bloqueio de conflito de horário e aplicação das regras de cada espaço (horário, duração, antecedência, limite por unidade e aprovação).2. **Visitantes**: autorização pelo morador e validação pela portaria.
+1. **Reservas, parte 2:** regras de negócio no service, endpoints, segurança e testes (ver "Para retomar" no histórico acima).
+2. **Visitantes**: autorização pelo morador e validação pela portaria.

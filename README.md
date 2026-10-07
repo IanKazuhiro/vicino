@@ -4,7 +4,7 @@ Sistema de gestão de condomínios. O MVP cobre o **agendamento de espaços comu
 
 ## Status
 
-Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. A próxima etapa são as **reservas**. O front-end ainda não foi iniciado.
+Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está em andamento: banco, entidade e consultas prontos, endpoints na próxima etapa. O front-end ainda não foi iniciado.
 
 Detalhes do que foi feito, pendências e próximos passos estão em [Docs/progresso.md](Docs/progresso.md).
 
@@ -47,7 +47,7 @@ config/       # SecurityConfig (regras de acesso e JWT), PasswordConfig e AdminI
 controller/   # endpoints REST
 dto/          # records de entrada (Request) e saída (Response)
 enums/        # PerfilEnum
-model/        # entidades JPA (Bloco, Unidade, Usuario, Espaco)
+model/        # entidades JPA (Bloco, Unidade, Usuario, Espaco, Reserva)
 repository/   # interfaces Spring Data JPA
 service/      # regras de negócio
 ```
@@ -60,7 +60,7 @@ As migrations do banco ficam em `backend/src/main/resources/db/migration` e são
 
 ## Como rodar o back-end
 
-Pré-requisitos: JDK 25 e um PostgreSQL acessível.
+Pré-requisitos: JDK 25 e um PostgreSQL acessível, com a extensão `btree_gist` disponível. Ela vem nas instalações padrão do PostgreSQL, e a migration V7 a instala; o usuário do banco precisa ter permissão para isso (por exemplo, ser dono do banco).
 
 1. Copie `backend/.env.example` para `backend/.env` e preencha as variáveis. O arquivo `.env` não vai para o Git.
 
