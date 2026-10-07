@@ -10,7 +10,7 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 ## Histórico de commits
 
-### Espaços comuns (2026-10-06)
+### `7a660cb` (2026-10-06): espaços comuns
 
 - **Migration V6** (`V6__criar_espacos.sql`): tabela `espaco`, com nome único e constraints `CHECK` para horário, duração, antecedência e limite por unidade.
 - **Entidade `Espaco`** com horário de funcionamento (`LocalTime`), duração mínima e máxima, antecedência mínima e máxima, limite de reservas por unidade, `exigeAprovacao` e `ativo`.
@@ -98,5 +98,4 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 - [ ] **Janela de reserva não atravessa a meia-noite** e vale igual para todos os dias da semana ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
 ## Próximos passos
 
-1. **Reservas**, com bloqueio de conflito de horário e aplicação das regras de cada espaço (horário, duração, antecedência, limite por unidade e aprovação).
-2. **Visitantes**: autorização pelo morador e validação pela portaria.
+1. **Reservas**, com bloqueio de conflito de horário e aplicação das regras de cada espaço (horário, duração, antecedência, limite por unidade e aprovação).2. **Visitantes**: autorização pelo morador e validação pela portaria.
