@@ -78,6 +78,47 @@ public class ReservaService {
         }
     }
 
+    @Transactional
+    public ReservaResponse aprovar(Long id) {
+        return decidir(id, StatusReservaEnum.CONFIRMADA);
+    }
+
+    @Transactional
+    public ReservaResponse recusar(Long id) {
+        return decidir(id, StatusReservaEnum.RECUSADA);
+    }
+
+    @Transactional 
+    public ReservaResponse cancelar(Long usuarioId, Long id) {
+        Usuario usuario = buscarUsuario(usuarioId);
+        Reserva reserva = buscarReserva(id);
+
+        if (usuario.getPerfil() == PerfilEnum.PORTARIA) {
+            throw erro(HttpStatus.FORBIDDEN,"A portaria não pode cancelar uma reserva");
+        }
+
+        boolean morador = usuario.getPerfil() == PerfilEnum.MORADOR;
+        if(morador && !reserva.getUnidade().getId().equals(usuario.getUnidade().getId())) {
+            throw erro(HttpStatus.FORBIDDEN, "O morador só pode cancelar as reservar da própria unidade!");
+        }
+
+        exigirStatus(reserva, StatusReservaEnum.PENDENTE, StatusReservaEnum.CONFIRMADA);
+
+        if (morador) {
+            int horas = reserva.getEspaco().getAntecedenciaMinimaHoras();
+            LocalDateTime prazo = reserva.getInicio().minusHours(horas);
+
+            if (LocalDateTime.now(clock).isAfter(prazo)) {
+                throw erro(HttpStatus.BAD_REQUEST, "O prazo para cancelar a reserva expirou: O prazo para cancelamento era até " + horas + "horas antes do início.");
+            }
+        } else {
+            exigirAntesDoInicio(reserva);
+        }
+
+        reserva.setStatus(StatusReservaEnum.CANCELADA);
+        return ReservaResponse.de(reserva);
+    }
+
     private Usuario buscarUsuario(Long usuarioId) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
             .orElseThrow(() -> erro(HttpStatus.UNAUTHORIZED, "Usuário não encontrado."));
@@ -133,6 +174,30 @@ public class ReservaService {
         if (inicio.isAfter(agora.plusDays(espaco.getAntecedenciaMaximaDias()))) {
             throw erro(HttpStatus.BAD_REQUEST, "Este espaço só aceita reservas com até "
                 + espaco.getAntecedenciaMaximaDias() + " dias de antecedência.");
+        }
+    }
+
+    private ReservaResponse decidir(Long id, StatusReservaEnum novoStatus) {
+        Reserva reserva = buscarReserva(id);
+        exigirStatus(reserva, StatusReservaEnum.PENDENTE);
+        exigirAntesDoInicio(reserva);
+        reserva.setStatus(novoStatus);
+        return ReservaResponse.de(reserva);
+    }
+
+    private Reserva buscarReserva(Long id) {
+        return reservaRepository.findById(id).orElseThrow(() -> erro(HttpStatus.NOT_FOUND, "Reserva não encontrada com o ID: " + id));
+    }
+
+    private void exigirStatus(Reserva reserva, StatusReservaEnum... permitidos) {
+        if (!List.of(permitidos).contains(reserva.getStatus())) {
+            throw erro(HttpStatus.CONFLICT, "A reserva está " + reserva.getStatus() + " e não permite esta operação.");
+        }
+    }
+
+    private void exigirAntesDoInicio(Reserva reserva) {
+        if (!LocalDateTime.now(clock).isBefore(reserva.getInicio())) {
+            throw erro(HttpStatus.BAD_REQUEST, "A reserva já começou!");
         }
     }
 

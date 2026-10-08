@@ -6,12 +6,26 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id) e de **espaços comuns** (criar, editar, listar e buscar por id), testados manualmente no Postman.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **reservas**. A criação (`POST /reservas`) está pronta e testada, com todas as regras do espaço aplicadas. Faltam as transições (aprovar, recusar, cancelar), as consultas e a documentação final (parte 3).
+- **Em andamento:** módulo de **reservas**. A criação (`POST /reservas`) está pronta e testada, com todas as regras do espaço aplicadas. As transições (aprovar, recusar, cancelar) estão escritas no service, mas ainda sem endpoints; faltam também as consultas e a documentação final (parte 3).
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### Reservas, parte 2: criação (2026-10-07)
+### Reservas, parte 3 em andamento: transições no service (2026-10-08)
+
+- **`ReservaService`:**
+  - `aprovar` e `recusar` usam o auxiliar `decidir`: a reserva precisa estar `PENDENTE` (409) e não pode ter começado (400);
+  - `cancelar`: a portaria recebe 403; o morador só cancela reservas da própria unidade (403) e até `inicio − antecedenciaMinimaHoras` (400); síndico e admin cancelam até o início (400); o status precisa ser `PENDENTE` ou `CONFIRMADA` (409);
+  - auxiliares `buscarReserva` (404), `exigirStatus` (varargs, 409) e `exigirAntesDoInicio` (400);
+  - as transições usam *dirty checking*, sem `save()`.
+- Ainda sem endpoints, então nada foi testado.
+
+**Para retomar:**
+1. Trocar `private` por `public` em `aprovar`, `recusar` e `cancelar`. Como `private`, o controller não consegue chamá-los, e o `@Transactional` é ignorado (a mudança de status não seria gravada).
+2. Corrigir as mensagens do `cancelar`: "as reservar" → "as reservas", e o espaço antes de "horas" (`+ horas + " horas antes do início."`).
+3. Seguir o checklist da parte 3: rotas `POST /reservas/{id}/aprovar`, `/recusar` e `/cancelar`, regra no `SecurityConfig`, testes e depois o 7c (consultas).
+
+### `3eb12d1` (2026-10-07): reservas, parte 2 (criação)
 
 - **`ReservaRequest`:** o componente `id` foi renomeado para `espacoId`.
 - **`ReservaService.criar(usuarioId, req)`:**
