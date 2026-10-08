@@ -66,6 +66,7 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
 |---|---|
 | `POST` em `/blocos`, `/unidades`, `/usuarios` e `/espacos` | `SINDICO`, `ADMINISTRADOR` |
 | `PUT` em `/espacos/{id}` | `SINDICO`, `ADMINISTRADOR` |
+| `POST` em `/reservas` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` |
 | `GET` em qualquer rota | Qualquer usuário autenticado |
 
 ## Blocos
@@ -208,6 +209,60 @@ Regras e motivação no [ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md).
   "limiteReservasPorUnidade": 2,
   "exigeAprovacao": false,
   "ativo": true
+}
+```
+
+## Reservas
+
+> Módulo em andamento: por enquanto só a criação está disponível. As transições (aprovar, recusar, cancelar) e as consultas entram na próxima etapa.
+
+Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no formato `"2026-10-10T18:00:00"`.
+
+| Método | Rota | Acesso | Descrição | Respostas |
+|---|---|---|---|---|
+| POST | `/reservas` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` | Cria uma reserva | 201, 400, 401, 403, 404, 409 |
+
+**Requisição**
+```json
+{
+  "espacoId": 1,
+  "unidadeId": 2,
+  "inicio": "2026-10-10T18:00:00",
+  "fim": "2026-10-10T19:00:00"
+}
+```
+- `espacoId`, `inicio` e `fim`: obrigatórios.
+- `unidadeId`: o morador não precisa informar, porque a reserva vai para a unidade dele (se informar outra, 403). Para síndico e administrador é obrigatório.
+
+**Regras**
+
+| Regra | Resposta se violada |
+|---|---|
+| O espaço existe e está ativo | 404 / 400 |
+| O início é anterior ao fim, e os dois estão no mesmo dia | 400 |
+| O período fica dentro do horário de funcionamento do espaço | 400 |
+| A duração fica entre a mínima e a máxima do espaço | 400 |
+| O início respeita a antecedência mínima (em horas) e a máxima (em dias) | 400 |
+| A unidade não passou do limite de reservas futuras ativas naquele espaço | 409 |
+| Não há outra reserva ativa (`PENDENTE` ou `CONFIRMADA`) sobreposta no espaço | 409 |
+| Quem reserva não é da portaria, e o usuário está ativo | 403 |
+
+O fim é exclusivo: 18:00–19:00 e 19:00–20:00 não conflitam. Mesmo com duas requisições simultâneas, o banco impede a sobreposição (constraint `EXCLUDE`), e a segunda recebe 409.
+
+**Status inicial:** `PENDENTE` quando o espaço exige aprovação e quem reserva é morador; `CONFIRMADA` nos demais casos, inclusive quando o síndico ou o administrador reserva.
+
+**Resposta (201)**
+```json
+{
+  "id": 1,
+  "espacoId": 1,
+  "espacoNome": "Quadra",
+  "unidadeId": 1,
+  "unidade": "Bloco A - 101",
+  "inicio": "2026-10-10T18:00:00",
+  "fim": "2026-10-10T19:00:00",
+  "status": "CONFIRMADA",
+  "criadoEm": "2026-10-07T22:15:03.123Z"
 }
 ```
 

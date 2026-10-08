@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import jakarta.validation.constraints.NotNull;
 
 public record ReservaRequest(
-    @NotNull Long id,
+    @NotNull Long espacoId,
     Long unidadeId,
     @NotNull LocalDateTime inicio,
     @NotNull LocalDateTime fim) {

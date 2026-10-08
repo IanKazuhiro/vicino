@@ -6,12 +6,30 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id) e de **espaços comuns** (criar, editar, listar e buscar por id), testados manualmente no Postman.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **reservas** (parte 1 de 2). Banco, entidade, repository e DTOs prontos; regras de negócio, endpoints e segurança na parte 2.
+- **Em andamento:** módulo de **reservas**. A criação (`POST /reservas`) está pronta e testada, com todas as regras do espaço aplicadas. Faltam as transições (aprovar, recusar, cancelar), as consultas e a documentação final (parte 3).
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### Reservas, parte 1 (2026-10-07)
+### Reservas, parte 2: criação (2026-10-07)
+
+- **`ReservaRequest`:** o componente `id` foi renomeado para `espacoId`.
+- **`ReservaService.criar(usuarioId, req)`:**
+  - carrega o usuário logado do banco, e um usuário inativo recebe 403 mesmo com token válido;
+  - `resolverUnidade`: o morador usa a própria unidade (403 se informar outra), a portaria recebe 403, e síndico e admin precisam informar `unidadeId` (400 se faltar, 404 se não existir);
+  - o espaço precisa existir (404) e estar ativo (400);
+  - `validarJanela`: início antes do fim, mesmo dia, dentro do horário do espaço e duração entre a mínima e a máxima (400);
+  - `validarAntecedencia` com o `Clock` do condomínio (400);
+  - limite de reservas futuras por unidade (409) e conflito de horário (409);
+  - status `PENDENTE` só quando o espaço exige aprovação e quem reserva é morador; nos demais casos, `CONFIRMADA`;
+  - `saveAndFlush` dentro de `try`, convertendo a violação da constraint `EXCLUDE` (reservas simultâneas) em 409.
+- **`ReservaController`:** `POST /reservas`. O usuário logado vem de `@AuthenticationPrincipal Jwt` (`sub` = id do usuário). Responde 201 com `Location`.
+- **`SecurityConfig`:** `POST /reservas` só para `MORADOR`, `SINDICO` e `ADMINISTRADOR`.
+- Testado no Postman: criação confirmada (201), conflito (409), horário vizinho com fim exclusivo (201), limite por unidade (409), fora do horário (400), duração inválida (400), antecedência mínima e máxima (400), espaço com aprovação gerando `PENDENTE` (201) e portaria barrada (403).
+
+**Observação:** o `Location` aponta para `/reservas/{id}`, que ainda não tem `GET`. O link passa a funcionar quando esse endpoint existir.
+
+### `7d5e54f` (2026-10-07): reservas, parte 1
 
 Base do módulo de reservas, ainda sem endpoints. Decisões do módulo:
 - **Quem reserva:** `MORADOR` para a própria unidade; `SINDICO` e `ADMINISTRADOR` para qualquer unidade, e nesse caso a reserva já nasce `CONFIRMADA`. A `PORTARIA` não reserva.
@@ -35,17 +53,7 @@ Feito nesta parte:
   - consultas derivadas para conflito de horário, limite por unidade, "minhas reservas" e agenda do dia;
   - `buscar` com `@Query` em JPQL e filtros opcionais, para a listagem do síndico. É a primeira consulta escrita à mão no projeto.
 - **DTOs:** `ReservaRequest`, `ReservaResponse` (com a unidade como texto, por exemplo "Bloco A - 101") e `AgendaItemResponse` (sem dados da unidade).
-- **Esqueletos vazios:** `ReservaService` e `ReservaController`.
-
-**Para retomar (parte 2):**
-1. Corrigir o `ReservaRequest`: o campo `id` deve se chamar `espacoId`.
-2. No `ReservaService`, trocar o import `jakarta.transaction.Transactional` por `org.springframework.transaction.annotation.Transactional`.
-3. Escrever o `ReservaService`:
-   - **7a:** `criar`, com as validações de usuário, unidade, espaço, janela, antecedência, limite e conflito, e o `saveAndFlush` tratando a constraint `EXCLUDE`;
-   - **7b:** `aprovar`, `recusar` e `cancelar`;
-   - **7c:** `minhas`, `listar` e `agenda`.
-4. Escrever o `ReservaController` e as regras no `SecurityConfig`.
-5. Testar no Postman, documentar (ADR 0007, `api.md`, README) e commitar.
+- **Esqueletos vazios:** `ReservaService` e `ReservaController` (preenchidos na parte 2).
 
 ### `aaab907` (2026-10-06): hash do commit de espaços no progresso
 
@@ -131,7 +139,7 @@ Feito nesta parte:
 - [ ] **Sem testes automatizados** além do teste de contexto gerado pelo Spring. O teste de contexto agora também depende do `JWT_SECRET` configurado.
 - [ ] **Respostas 401 e 403 sem corpo:** padronizar junto com o tratamento global de erros.
 - [ ] **`GET /usuarios` aberto a qualquer usuário autenticado:** morador e portaria conseguem ver nome e e-mail de todos os usuários. Avaliar restrição por causa da LGPD (ponto em aberto do [ADR 0004](0004-perfis-e-permissoes.md)).
-- [ ] **Usuário desativado mantém acesso** até o token expirar (no máximo 60 minutos). Aceitável no MVP; não existe endpoint para desativar usuários ainda.
+- [ ] **Usuário desativado mantém acesso** até o token expirar (no máximo 60 minutos). Aceitável no MVP; não existe endpoint para desativar usuários ainda. O módulo de reservas já confere o `ativo` no banco a cada requisição.
 - [ ] **Sem refresh token:** depois de 60 minutos é preciso logar de novo.
 - [ ] **Sem endpoint para o usuário consultar os próprios dados** (por exemplo, `GET /usuarios/me`), útil para o front-end saber quem está logado.
 
@@ -139,5 +147,8 @@ Feito nesta parte:
 - [ ] **Janela de reserva não atravessa a meia-noite** e vale igual para todos os dias da semana ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
 ## Próximos passos
 
-1. **Reservas, parte 2:** regras de negócio no service, endpoints, segurança e testes (ver "Para retomar" no histórico acima).
+1. **Reservas, parte 3:**
+   - transições: `aprovar`, `recusar` e `cancelar`;
+   - consultas: `GET /reservas/{id}`, `GET /reservas/minhas`, `GET /reservas` (síndico) e `GET /reservas/agenda`;
+   - regras no `SecurityConfig`, testes no Postman e ADR 0007.
 2. **Visitantes**: autorização pelo morador e validação pela portaria.
