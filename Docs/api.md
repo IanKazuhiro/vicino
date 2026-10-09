@@ -69,7 +69,9 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
 | `POST` em `/reservas` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` |
 | `POST` em `/reservas/{id}/aprovar` e `/reservas/{id}/recusar` | `SINDICO`, `ADMINISTRADOR` |
 | `POST` em `/reservas/{id}/cancelar` | Qualquer usuário autenticado; o service confere o dono e o prazo |
-| `GET` em qualquer rota | Qualquer usuário autenticado |
+| `GET` em `/reservas` (listagem geral) | `SINDICO`, `ADMINISTRADOR` |
+| `GET` em `/reservas/{id}`, `/reservas/minhas` e `/reservas/agenda` | Qualquer usuário autenticado; o service aplica as regras de visibilidade |
+| `GET` nas demais rotas | Qualquer usuário autenticado |
 
 ## Blocos
 
@@ -216,7 +218,7 @@ Regras e motivação no [ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md).
 
 ## Reservas
 
-> Módulo em andamento: criação e transições (aprovar, recusar, cancelar) disponíveis. As consultas entram na próxima etapa.
+Regras e motivação no [ADR 0007](0007-reservas.md).
 
 Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no formato `"2026-10-10T18:00:00"`.
 
@@ -226,6 +228,12 @@ Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no fo
 | POST | `/reservas/{id}/aprovar` | `SINDICO`, `ADMINISTRADOR` | `PENDENTE` → `CONFIRMADA` | 200, 400, 401, 403, 404, 409 |
 | POST | `/reservas/{id}/recusar` | `SINDICO`, `ADMINISTRADOR` | `PENDENTE` → `RECUSADA` | 200, 400, 401, 403, 404, 409 |
 | POST | `/reservas/{id}/cancelar` | Autenticado (veja as regras) | `PENDENTE` ou `CONFIRMADA` → `CANCELADA` | 200, 400, 401, 403, 404, 409 |
+| GET | `/reservas/{id}` | Autenticado (veja as regras) | Detalhe de uma reserva | 200, 401, 403, 404 |
+| GET | `/reservas/minhas` | Autenticado | Reservas da unidade do usuário logado, da mais recente para a mais antiga | 200, 401 |
+| GET | `/reservas` | `SINDICO`, `ADMINISTRADOR` | Todas as reservas, com filtros opcionais `?espacoId=` e `?status=` | 200, 400, 401, 403 |
+| GET | `/reservas/agenda?espacoId=&data=` | Autenticado | Horários ocupados de um espaço em um dia, sem dados da unidade | 200, 400, 401, 404 |
+
+### Criação
 
 **Requisição**
 ```json
@@ -256,7 +264,7 @@ O fim é exclusivo: 18:00–19:00 e 19:00–20:00 não conflitam. Mesmo com duas
 
 **Status inicial:** `PENDENTE` quando o espaço exige aprovação e quem reserva é morador; `CONFIRMADA` nos demais casos, inclusive quando o síndico ou o administrador reserva.
 
-**Transições**
+### Transições
 
 As três rotas não têm corpo e devolvem **200** com a reserva atualizada, no mesmo formato da resposta da criação.
 
@@ -269,7 +277,26 @@ As três rotas não têm corpo e devolvem **200** com a reserva atualizada, no m
 
 Recusar ou cancelar libera o horário para novas reservas.
 
-**Resposta (201)**
+### Consultas
+
+| Rota | Regras |
+|---|---|
+| `GET /reservas/{id}` | O morador só vê reservas da própria unidade (403 para as outras); a portaria não vê detalhes (403); síndico e administrador veem todas. |
+| `GET /reservas/minhas` | Reservas da unidade do usuário logado, em qualquer status. Para quem não tem unidade (síndico, administrador, portaria), devolve uma lista vazia. |
+| `GET /reservas` | Só síndico e administrador. `espacoId` e `status` são opcionais e podem ser combinados; um `status` inválido dá 400. |
+| `GET /reservas/agenda` | `espacoId` e `data` (formato `2026-10-10`) são obrigatórios (400 se faltarem); espaço inexistente dá 404. Mostra só reservas `PENDENTE` e `CONFIRMADA` que ocupam algum horário do dia, em ordem de início. |
+
+**Resposta da agenda** (sem identificar a unidade, por causa da LGPD)
+```json
+[
+  { "inicio": "2026-10-10T18:00:00", "fim": "2026-10-10T19:00:00", "status": "CONFIRMADA" },
+  { "inicio": "2026-10-10T20:00:00", "fim": "2026-10-10T21:00:00", "status": "PENDENTE" }
+]
+```
+
+### Formato da reserva
+
+Usado na resposta da criação (201), das transições (200), do detalhe e das listas.
 ```json
 {
   "id": 1,

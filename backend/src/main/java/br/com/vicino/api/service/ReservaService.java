@@ -2,6 +2,7 @@ package br.com.vicino.api.service;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import br.com.vicino.api.dto.AgendaItemResponse;
 import br.com.vicino.api.dto.ReservaRequest;
 import br.com.vicino.api.dto.ReservaResponse;
 import br.com.vicino.api.enums.PerfilEnum;
@@ -117,6 +119,46 @@ public class ReservaService {
 
         reserva.setStatus(StatusReservaEnum.CANCELADA);
         return ReservaResponse.de(reserva);
+    }
+
+    @Transactional(readOnly = true) 
+    public ReservaResponse buscarPorId(Long usuarioId, Long id) {
+        Usuario usuario = buscarUsuario(usuarioId);
+        Reserva reserva = buscarReserva(id);
+        if (usuario.getPerfil() == PerfilEnum.PORTARIA) {
+            throw erro(HttpStatus.FORBIDDEN, "A portaria não tem acesso aos detalhes do agendamento!");
+        }
+        if (usuario.getPerfil() == PerfilEnum.MORADOR && !reserva.getUnidade().getId().equals(usuario.getUnidade().getId())) {
+            throw erro(HttpStatus.FORBIDDEN, "O morador só pode ver as reservas da própria unidade");
+        }
+        return ReservaResponse.de(reserva);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservaResponse> minhas(Long usuarioId) {
+        Usuario usuario = buscarUsuario(usuarioId);
+        if(usuario.getUnidade() == null) {
+            return List.of();
+        }            
+        return reservaRepository.findByUnidadeIdOrderByInicioDesc(usuario.getUnidade().getId()).stream().map(ReservaResponse::de).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservaResponse> listar(Long espacoId, StatusReservaEnum status) {
+        return reservaRepository.buscar(espacoId, status)
+            .stream().map(ReservaResponse::de).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AgendaItemResponse> agenda(Long espacoId, LocalDate data) {
+        if (!espacoRepository.existsById(espacoId)) {
+            throw erro(HttpStatus.NOT_FOUND, "Espaço não encontrado com o ID: " + espacoId);
+        }
+        LocalDateTime inicioDoDia = data.atStartOfDay();
+        LocalDateTime fimDoDia = data.plusDays(1).atStartOfDay();
+        return reservaRepository.findByEspacoIdAndStatusInAndInicioLessThanAndFimGreaterThanOrderByInicio(
+                espacoId, ATIVAS, fimDoDia, inicioDoDia)
+            .stream().map(AgendaItemResponse::de).toList();
     }
 
     private Usuario buscarUsuario(Long usuarioId) {

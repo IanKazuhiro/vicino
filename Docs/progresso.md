@@ -4,14 +4,33 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 ## Estado atual
 
-- **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id) e de **espaços comuns** (criar, editar, listar e buscar por id), testados manualmente no Postman.
-- **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **reservas**. Criação, aprovação, recusa e cancelamento estão prontos e testados. Faltam as consultas (`GET /reservas/{id}`, `/minhas`, a listagem do síndico e a agenda) e a documentação final (ADR 0007).
+- **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
+- **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
+- **Próximo módulo:** visitantes.
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### Reservas, parte 3: rotas das transições (2026-10-08)
+### Reservas, parte 3: consultas e fechamento do módulo (2026-10-08)
+
+- **`ReservaService`:**
+  - `buscarPorId`: o morador só vê reservas da própria unidade, a portaria não vê detalhes (403), e síndico e admin veem todas;
+  - `minhas`: reservas da unidade do usuário, da mais recente para a mais antiga, ou lista vazia para quem não tem unidade;
+  - `listar`: usa a `@Query` com filtros opcionais de espaço e status;
+  - `agenda`: reservas `PENDENTE` e `CONFIRMADA` que ocupam o dia, devolvidas como `AgendaItemResponse`, sem dados da unidade (LGPD).
+- **`ReservaController`:** `GET /reservas/{id}`, `/minhas`, `GET /reservas?espacoId=&status=` e `/agenda?espacoId=&data=`, esta com `@DateTimeFormat(iso = DATE)`. Com o `GET /reservas/{id}`, o `Location` devolvido pela criação passa a funcionar.
+- **`SecurityConfig`:** `GET /reservas` (listagem geral) só para `SINDICO` e `ADMINISTRADOR`.
+- **Coleção do Postman,** agora "Vicino - Reservas (transições e consultas)", com 46 requisições: 16 novos testes de consulta, todos aprovados. Os testes cobrem:
+  - o `Location`;
+  - o detalhe para dono, outra unidade e portaria;
+  - reserva inexistente;
+  - "minhas" para morador e para síndico;
+  - os filtros da listagem e o status inválido;
+  - a agenda sem dados da unidade, sem canceladas e recusadas e em ordem;
+  - a agenda com espaço inexistente e sem a data.
+- **Documentação:** ADR 0007 (reservas), `api.md` com todas as rotas de reservas, este arquivo e o README.
+
+### `ff6b679` (2026-10-08): reservas, parte 3 (rotas das transições)
 
 - **`ReservaController`:** `POST /reservas/{id}/aprovar`, `/recusar` e `/cancelar`. Ações sem corpo, que devolvem 200 com a reserva atualizada. Só o `cancelar` recebe o usuário logado (`@AuthenticationPrincipal Jwt`), porque precisa saber quem está cancelando.
 - **`SecurityConfig`:** aprovar e recusar só para `SINDICO` e `ADMINISTRADOR`. O cancelamento fica para qualquer usuário autenticado, e o service confere o dono e o prazo.
@@ -172,13 +191,13 @@ Feito nesta parte:
 - [ ] **Usuário desativado mantém acesso** até o token expirar (no máximo 60 minutos). Aceitável no MVP; não existe endpoint para desativar usuários ainda. O módulo de reservas já confere o `ativo` no banco a cada requisição.
 - [ ] **Sem refresh token:** depois de 60 minutos é preciso logar de novo.
 - [ ] **Sem endpoint para o usuário consultar os próprios dados** (por exemplo, `GET /usuarios/me`), útil para o front-end saber quem está logado.
-
-- [ ] **`GET /espacos` lista também os inativos.** Para o morador, o ideal é ver só os ativos; avaliar no módulo de reservas.
+- [ ] **`GET /espacos` lista também os inativos.** Para o morador, o ideal é ver só os ativos. A criação de reservas já recusa espaço inativo (400).
 - [ ] **Janela de reserva não atravessa a meia-noite** e vale igual para todos os dias da semana ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
+- [ ] **Listagens de reservas fazem uma consulta extra por reserva** (espaço, unidade e bloco são `LAZY`). Aceitável no volume de um condomínio; usar `@EntityGraph` se for preciso.
+- [ ] **Extensão `btree_gist` no Railway:** confirmar antes do deploy que o PostgreSQL de produção permite instalá-la (a V7 depende dela).
+- [ ] **Testes de reservas só pelo Postman:** a coleção "Vicino - Reservas (transições e consultas)" cobre o módulo, mas não roda no build. Um teste automatizado do `ReservaService` com `Clock.fixed` seria o primeiro do projeto.
+
 ## Próximos passos
 
-1. **Reservas, fim da parte 3:**
-   - consultas: `GET /reservas/{id}`, `GET /reservas/minhas`, `GET /reservas` (síndico, com filtros) e `GET /reservas/agenda`;
-   - regra do `GET /reservas` no `SecurityConfig`;
-   - testes das consultas (podem entrar na coleção do Postman) e ADR 0007.
-2. **Visitantes**: autorização pelo morador e validação pela portaria.
+1. **Visitantes**: autorização pelo morador e validação pela portaria.
+2. **Pendências pequenas** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.
