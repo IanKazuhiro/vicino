@@ -6,24 +6,40 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id) e de **espaços comuns** (criar, editar, listar e buscar por id), testados manualmente no Postman.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado (ver [ADR 0004](0004-perfis-e-permissoes.md) e [ADR 0005](0005-autenticacao-jwt.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **reservas**. A criação (`POST /reservas`) está pronta e testada, com todas as regras do espaço aplicadas. As transições (aprovar, recusar, cancelar) estão escritas no service, mas ainda sem endpoints; faltam também as consultas e a documentação final (parte 3).
+- **Em andamento:** módulo de **reservas**. Criação, aprovação, recusa e cancelamento estão prontos e testados. Faltam as consultas (`GET /reservas/{id}`, `/minhas`, a listagem do síndico e a agenda) e a documentação final (ADR 0007).
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### Reservas, parte 3 em andamento: transições no service (2026-10-08)
+### Reservas, parte 3: rotas das transições (2026-10-08)
+
+- **`ReservaController`:** `POST /reservas/{id}/aprovar`, `/recusar` e `/cancelar`. Ações sem corpo, que devolvem 200 com a reserva atualizada. Só o `cancelar` recebe o usuário logado (`@AuthenticationPrincipal Jwt`), porque precisa saber quem está cancelando.
+- **`SecurityConfig`:** aprovar e recusar só para `SINDICO` e `ADMINISTRADOR`. O cancelamento fica para qualquer usuário autenticado, e o service confere o dono e o prazo.
+- **`ReservaService`:** mensagens do `cancelar` corrigidas.
+- **Testes automatizados no Postman:** coleção "Vicino - Reservas (transições)", no workspace do Postman, rodada pelo Collection Runner.
+  - Ela prepara os dados que faltam: unidade 102, usuário da portaria e espaço "Salão de Festas" com aprovação.
+  - Ela executa os cenários e cancela as reservas criadas no fim, para poder ser rodada de novo.
+  - As senhas ficam só no *Current value* das variáveis, nunca na coleção sincronizada.
+- Cenários aprovados:
+  - aprovar uma `PENDENTE` (200 `CONFIRMADA`) e aprovar de novo (409);
+  - morador tentando aprovar (403);
+  - recusar (200 `RECUSADA`);
+  - morador cancelando reserva de outra unidade (403) e portaria cancelando (403);
+  - morador cancelando fora do prazo (400, com a Quadra temporariamente em 48 h);
+  - cancelar dentro do prazo (200 `CANCELADA`), com o horário liberado para nova reserva (201);
+  - cancelar de novo (409);
+  - síndico reservando espaço com aprovação já `CONFIRMADA` (201).
+
+  O banco confirmou os status finais de todas as reservas.
+
+### `941f5dd` (2026-10-08): reservas, parte 3 em andamento (transições no service)
 
 - **`ReservaService`:**
   - `aprovar` e `recusar` usam o auxiliar `decidir`: a reserva precisa estar `PENDENTE` (409) e não pode ter começado (400);
   - `cancelar`: a portaria recebe 403; o morador só cancela reservas da própria unidade (403) e até `inicio − antecedenciaMinimaHoras` (400); síndico e admin cancelam até o início (400); o status precisa ser `PENDENTE` ou `CONFIRMADA` (409);
   - auxiliares `buscarReserva` (404), `exigirStatus` (varargs, 409) e `exigirAntesDoInicio` (400);
   - as transições usam *dirty checking*, sem `save()`.
-- Ainda sem endpoints, então nada foi testado.
-
-**Para retomar:**
-1. Trocar `private` por `public` em `aprovar`, `recusar` e `cancelar`. Como `private`, o controller não consegue chamá-los, e o `@Transactional` é ignorado (a mudança de status não seria gravada).
-2. Corrigir as mensagens do `cancelar`: "as reservar" → "as reservas", e o espaço antes de "horas" (`+ horas + " horas antes do início."`).
-3. Seguir o checklist da parte 3: rotas `POST /reservas/{id}/aprovar`, `/recusar` e `/cancelar`, regra no `SecurityConfig`, testes e depois o 7c (consultas).
+- Ainda sem endpoints neste commit; as rotas e os testes vieram no commit seguinte.
 
 ### `3eb12d1` (2026-10-07): reservas, parte 2 (criação)
 
@@ -161,8 +177,8 @@ Feito nesta parte:
 - [ ] **Janela de reserva não atravessa a meia-noite** e vale igual para todos os dias da semana ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
 ## Próximos passos
 
-1. **Reservas, parte 3:**
-   - transições: `aprovar`, `recusar` e `cancelar`;
-   - consultas: `GET /reservas/{id}`, `GET /reservas/minhas`, `GET /reservas` (síndico) e `GET /reservas/agenda`;
-   - regras no `SecurityConfig`, testes no Postman e ADR 0007.
+1. **Reservas, fim da parte 3:**
+   - consultas: `GET /reservas/{id}`, `GET /reservas/minhas`, `GET /reservas` (síndico, com filtros) e `GET /reservas/agenda`;
+   - regra do `GET /reservas` no `SecurityConfig`;
+   - testes das consultas (podem entrar na coleção do Postman) e ADR 0007.
 2. **Visitantes**: autorização pelo morador e validação pela portaria.

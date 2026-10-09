@@ -67,6 +67,8 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
 | `POST` em `/blocos`, `/unidades`, `/usuarios` e `/espacos` | `SINDICO`, `ADMINISTRADOR` |
 | `PUT` em `/espacos/{id}` | `SINDICO`, `ADMINISTRADOR` |
 | `POST` em `/reservas` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` |
+| `POST` em `/reservas/{id}/aprovar` e `/reservas/{id}/recusar` | `SINDICO`, `ADMINISTRADOR` |
+| `POST` em `/reservas/{id}/cancelar` | Qualquer usuário autenticado; o service confere o dono e o prazo |
 | `GET` em qualquer rota | Qualquer usuário autenticado |
 
 ## Blocos
@@ -214,13 +216,16 @@ Regras e motivação no [ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md).
 
 ## Reservas
 
-> Módulo em andamento: por enquanto só a criação está disponível. As transições (aprovar, recusar, cancelar) e as consultas entram na próxima etapa.
+> Módulo em andamento: criação e transições (aprovar, recusar, cancelar) disponíveis. As consultas entram na próxima etapa.
 
 Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no formato `"2026-10-10T18:00:00"`.
 
 | Método | Rota | Acesso | Descrição | Respostas |
 |---|---|---|---|---|
 | POST | `/reservas` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` | Cria uma reserva | 201, 400, 401, 403, 404, 409 |
+| POST | `/reservas/{id}/aprovar` | `SINDICO`, `ADMINISTRADOR` | `PENDENTE` → `CONFIRMADA` | 200, 400, 401, 403, 404, 409 |
+| POST | `/reservas/{id}/recusar` | `SINDICO`, `ADMINISTRADOR` | `PENDENTE` → `RECUSADA` | 200, 400, 401, 403, 404, 409 |
+| POST | `/reservas/{id}/cancelar` | Autenticado (veja as regras) | `PENDENTE` ou `CONFIRMADA` → `CANCELADA` | 200, 400, 401, 403, 404, 409 |
 
 **Requisição**
 ```json
@@ -250,6 +255,19 @@ Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no fo
 O fim é exclusivo: 18:00–19:00 e 19:00–20:00 não conflitam. Mesmo com duas requisições simultâneas, o banco impede a sobreposição (constraint `EXCLUDE`), e a segunda recebe 409.
 
 **Status inicial:** `PENDENTE` quando o espaço exige aprovação e quem reserva é morador; `CONFIRMADA` nos demais casos, inclusive quando o síndico ou o administrador reserva.
+
+**Transições**
+
+As três rotas não têm corpo e devolvem **200** com a reserva atualizada, no mesmo formato da resposta da criação.
+
+| Operação | Regras | Erros |
+|---|---|---|
+| Aprovar e recusar | A reserva precisa estar `PENDENTE` e ainda não pode ter começado. Como uma `PENDENTE` já ocupa o horário, aprovar não gera conflito. | 404 (não existe), 409 (status não é `PENDENTE`), 400 (já começou) |
+| Cancelar, pelo morador | Só reservas da própria unidade, `PENDENTE` ou `CONFIRMADA`, até `inicio − antecedenciaMinimaHoras` do espaço | 403 (outra unidade), 409 (status), 400 (prazo encerrado) |
+| Cancelar, pelo síndico ou administrador | Qualquer reserva `PENDENTE` ou `CONFIRMADA` que ainda não começou | 409 (status), 400 (já começou) |
+| Cancelar, pela portaria | Não permitido | 403 |
+
+Recusar ou cancelar libera o horário para novas reservas.
 
 **Resposta (201)**
 ```json

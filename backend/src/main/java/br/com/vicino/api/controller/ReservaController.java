@@ -4,6 +4,7 @@ import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,5 +35,20 @@ public class ReservaController {
             .toUri();
         
         return ResponseEntity.created(location).body(criada);
+    }
+
+    @PostMapping("/{id}/aprovar")
+    public ReservaResponse aprovar(@PathVariable Long id) { 
+        return service.aprovar(id);
+    }
+    
+    @PostMapping("/{id}/recusar")
+    public ReservaResponse recusar(@PathVariable Long id) { 
+        return service.recusar(id);
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ReservaResponse cancelar(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) { 
+        return service.cancelar(Long.valueOf(jwt.getSubject()), id);
     }
 }

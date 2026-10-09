@@ -4,7 +4,7 @@ Sistema de gestão de condomínios. O MVP cobre o **agendamento de espaços comu
 
 ## Status
 
-Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está em andamento: a criação já aplica todas as regras do espaço e bloqueia conflitos de horário; aprovação, cancelamento e consultas vêm na próxima etapa. O front-end ainda não foi iniciado.
+Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está em andamento: criação (com todas as regras do espaço e bloqueio de conflitos), aprovação, recusa e cancelamento prontos; as consultas vêm na próxima etapa. O front-end ainda não foi iniciado.
 
 Detalhes do que foi feito, pendências e próximos passos estão em [Docs/progresso.md](Docs/progresso.md).
 
@@ -110,7 +110,7 @@ Para só compilar (útil depois de renomear classes ou records):
 | Unidades | `POST /unidades`, `GET /unidades?blocoId=`, `GET /unidades/{id}` |
 | Usuários | `POST /usuarios`, `GET /usuarios`, `GET /usuarios/{id}` |
 | Espaços | `POST /espacos`, `PUT /espacos/{id}`, `GET /espacos`, `GET /espacos/{id}` |
-| Reservas | `POST /reservas` (demais rotas em desenvolvimento) |
+| Reservas | `POST /reservas`, `POST /reservas/{id}/aprovar`, `/recusar` e `/cancelar` (consultas em desenvolvimento) |
 
 Exceto o login e o `/actuator/health`, todas as rotas exigem o header `Authorization: Bearer <token>`, com o token obtido no login (válido por 60 minutos). Os `POST` de cadastro e o `PUT` de espaços exigem o perfil `SINDICO` ou `ADMINISTRADOR`.
 

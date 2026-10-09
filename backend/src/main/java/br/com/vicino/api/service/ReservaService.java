@@ -99,7 +99,7 @@ public class ReservaService {
 
         boolean morador = usuario.getPerfil() == PerfilEnum.MORADOR;
         if(morador && !reserva.getUnidade().getId().equals(usuario.getUnidade().getId())) {
-            throw erro(HttpStatus.FORBIDDEN, "O morador só pode cancelar as reservar da própria unidade!");
+            throw erro(HttpStatus.FORBIDDEN, "O morador só pode cancelar as reservas da própria unidade!");
         }
 
         exigirStatus(reserva, StatusReservaEnum.PENDENTE, StatusReservaEnum.CONFIRMADA);
@@ -109,7 +109,7 @@ public class ReservaService {
             LocalDateTime prazo = reserva.getInicio().minusHours(horas);
 
             if (LocalDateTime.now(clock).isAfter(prazo)) {
-                throw erro(HttpStatus.BAD_REQUEST, "O prazo para cancelar a reserva expirou: O prazo para cancelamento era até " + horas + "horas antes do início.");
+                throw erro(HttpStatus.BAD_REQUEST, "O prazo para cancelar a reserva expirou: O prazo para cancelamento era até " + horas + " horas antes do início.");
             }
         } else {
             exigirAntesDoInicio(reserva);
