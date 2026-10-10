@@ -4,7 +4,7 @@ Sistema de gestão de condomínios. O MVP cobre o **agendamento de espaços comu
 
 ## Status
 
-Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O próximo módulo é o de **visitantes**. O front-end ainda não foi iniciado.
+Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** está em andamento: a base no banco já existe, e faltam as regras e as rotas de autorização, entrada e saída. O front-end ainda não foi iniciado.
 
 Detalhes do que foi feito, pendências e próximos passos estão em [Docs/progresso.md](Docs/progresso.md).
 
@@ -43,11 +43,11 @@ vicino/
 ### Back-end (`backend/src/main/java/br/com/vicino/api`)
 
 ```
-config/       # SecurityConfig (regras de acesso e JWT), PasswordConfig e AdminInicial
+config/       # SecurityConfig (regras de acesso e JWT), PasswordConfig, ClockConfig e AdminInicial
 controller/   # endpoints REST
 dto/          # records de entrada (Request) e saída (Response)
-enums/        # PerfilEnum
-model/        # entidades JPA (Bloco, Unidade, Usuario, Espaco, Reserva)
+enums/        # PerfilEnum, StatusReservaEnum e StatusAutorizacaoEnum
+model/        # entidades JPA (Bloco, Unidade, Usuario, Espaco, Reserva, AutorizacaoVisitante, AcessoVisitante)
 repository/   # interfaces Spring Data JPA
 service/      # regras de negócio
 ```

@@ -6,12 +6,57 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
-- **Próximo módulo:** visitantes.
+- **Em andamento:** módulo de **visitantes**. A base (banco, entidades, repositories e DTOs) está pronta; faltam as regras e as rotas.
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### Reservas, parte 3: consultas e fechamento do módulo (2026-10-08)
+### `pendente` (2026-10-10): documentação da parte 1 de visitantes
+
+- A documentação da parte 1 não entrou no commit `a357750`, porque as alterações se perderam antes dele. Este commit traz a entrada abaixo, o "Estado atual", os "Próximos passos" e o README.
+- Registro do hash `9ce12cf` na entrada das reservas.
+
+### `a357750` (2026-10-10): visitantes, parte 1
+
+Base do módulo de visitantes, ainda sem endpoints. Decisões do módulo:
+- **Quem autoriza:** o `MORADOR`, para a própria unidade; `SINDICO` e `ADMINISTRADOR`, para qualquer unidade. A `PORTARIA` não autoriza, só registra a entrada e a saída.
+- **Período:** início e fim definidos por quem autoriza, com no máximo 30 dias. Diferente das reservas, o período pode atravessar a meia-noite. Cobre a visita única (sábado das 18h às 23h) e a recorrente (a diarista durante a semana).
+- **Dados do visitante:** nome e documento obrigatórios; telefone e placa opcionais.
+- **Várias entradas por autorização:** o visitante pode entrar e sair mais de uma vez dentro do período, mas nunca com duas entradas abertas ao mesmo tempo.
+- **LGPD:** 90 dias depois do fim da autorização, nome, documento, telefone e placa são anonimizados. Os horários de entrada e saída continuam, sem identificar a pessoa.
+
+Feito nesta parte:
+- **Propriedade `vicino.visitantes.retencao-dias=90`:** o prazo de retenção dos dados pessoais, usado pela tarefa de anonimização (parte 4).
+- **`StatusAutorizacaoEnum`:** `ATIVA` e `CANCELADA`. "Expirada" não é gravada: é calculada comparando o `fim` com o momento atual.
+- **Migration V8** (`V8__criar_visitantes.sql`), escrita com a aplicação parada:
+  - tabela `autorizacao_visitante`:
+    - unidade, `criado_por` e os dados do visitante;
+    - `inicio` e `fim` (`TIMESTAMP` sem fuso, em hora do condomínio), status, `criado_em` e `anonimizado_em`;
+    - `CHECK` de período e de status;
+    - `CHECK` `ck_autorizacao_dados`: nome e documento são obrigatórios até a anonimização;
+    - índices em `unidade_id` e em `(inicio, fim)`.
+  - tabela `acesso_visitante`:
+    - autorização, `entrada_em` e `saida_em`, e quem registrou cada uma;
+    - `CHECK` de que a saída não vem antes da entrada, e de que a saída e quem a registrou são preenchidos juntos.
+  - **índice único parcial** `ux_acesso_aberto` (`WHERE saida_em IS NULL`): o próprio banco impede duas entradas abertas para a mesma autorização, como o `EXCLUDE` faz nas reservas.
+- **Entidades `AutorizacaoVisitante` e `AcessoVisitante`:**
+  - `@ManyToOne` `LAZY`;
+  - `nome` e `documento` sem `nullable = false`, porque a anonimização grava `null` neles;
+  - `registradoSaidaPor` opcional;
+  - `entradaEm` preenchida pelo service com o `Clock`, sem `@PrePersist`.
+- **Repositories:**
+  - `AutorizacaoVisitanteRepository`:
+    - autorizações da unidade;
+    - `buscarValidas`, com `@Query` que filtra as autorizações `ATIVA` com `inicio ≤ agora < fim` por nome (sem diferenciar maiúsculas) ou documento;
+    - autorizações a anonimizar.
+  - `AcessoVisitanteRepository`: entrada aberta de uma autorização e lista de quem está no condomínio.
+- **DTOs:**
+  - `AutorizacaoVisitanteRequest`, com `@Size` nos mesmos limites das colunas;
+  - `AutorizacaoVisitanteResponse`, com `anonimizadoEm` para explicar nome e documento nulos;
+  - `AcessoVisitanteResponse`, usado na entrada, na saída e na lista de presentes, sem o documento (LGPD).
+- Conferido no banco: V8 registrada com sucesso, colunas, constraints e índices criados. A aplicação sobe com `ddl-auto=validate`, então as entidades batem com as tabelas.
+
+### `9ce12cf` (2026-10-08): reservas, parte 3 (consultas e fechamento do módulo)
 
 - **`ReservaService`:**
   - `buscarPorId`: o morador só vê reservas da própria unidade, a portaria não vê detalhes (403), e síndico e admin veem todas;
@@ -199,5 +244,8 @@ Feito nesta parte:
 
 ## Próximos passos
 
-1. **Visitantes**: autorização pelo morador e validação pela portaria.
+1. **Visitantes**, em partes:
+   - parte 2: autorizações pelo morador, síndico e admin (criar, "minhas" e cancelar);
+   - parte 3: rotas da portaria (busca de autorizações válidas, entrada, saída e presentes);
+   - parte 4: anonimização agendada (LGPD), ADR 0008 e fechamento da documentação.
 2. **Pendências pequenas** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.
