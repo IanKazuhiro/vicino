@@ -6,12 +6,51 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **visitantes**. Autorizações prontas e testadas (criar, "minhas" e cancelar); faltam as rotas da portaria e a anonimização (LGPD).
+- **Em andamento:** módulo de **visitantes**. Autorizações (criar, "minhas" e cancelar) e rotas da portaria (busca, entrada, saída e presentes) prontas; falta a anonimização (LGPD).
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### `pendente` (2026-10-10): documentação da parte 2 de visitantes
+### `pendente` (2026-10-11): visitantes, parte 3 (portaria)
+
+- **Documento normalizado:** gravado e buscado só com letras e números, em maiúsculas ("123.456.789-00" vira "12345678900"). Assim o porteiro encontra o visitante digitando o documento com ou sem pontuação. Um documento que fica vazio depois da limpeza (por exemplo, "---") dá 400. As 3 autorizações de teste anteriores, todas `CANCELADA`, ficaram com a pontuação; como nunca aparecem na busca, não foi preciso migration.
+- **`AutorizacaoVisitanteRepository.buscarValidas`:** recebe dois parâmetros, o `nome` (texto como digitado, comparado sem diferenciar maiúsculas) e o `documento` (texto sem pontuação).
+- **`VisitanteService`:**
+  - **`buscarValidas(busca)`:**
+    - sem busca, lista todas as autorizações válidas agora;
+    - uma busca só com pontuação usa o próprio texto no lugar do documento, para não virar `''` e listar tudo.
+  - **`registrarEntrada`:**
+    - autorização existente (404), `ATIVA` (409) e dentro do período (400);
+    - sem outra entrada aberta (409), verificado com `existsBy...` e garantido pelo índice único `ux_acesso_aberto`: o `saveAndFlush` dentro do `try` converte a violação em 409, como nas reservas;
+    - grava quem registrou a entrada.
+  - **`registrarSaida`:** acesso existente (404) e ainda sem saída (409). Não confere período nem status, porque o visitante pode sair atrasado ou depois do cancelamento. Grava a saída e quem a registrou por *dirty checking*.
+  - **`presentes`:** acessos sem saída, da entrada mais antiga para a mais recente.
+  - Mudança em relação ao plano: uma entrada numa autorização que não está `ATIVA` responde **409**, e não 400, seguindo a convenção do projeto (status que não permite a operação → 409; horário → 400).
+- **`VisitanteController`:**
+  - `GET /visitantes/autorizacoes/validas?busca=` (opcional);
+  - `POST /visitantes/autorizacoes/{id}/entrada` (201, sem `Location`);
+  - `POST /visitantes/acessos/{id}/saida` (200);
+  - `GET /visitantes/presentes`.
+- **`SecurityConfig`:** as quatro rotas só para `PORTARIA`, `SINDICO` e `ADMINISTRADOR`. O morador recebe 403 (LGPD: a busca e os presentes mostram visitantes de todas as unidades).
+- **Testes:** coleção nova no Postman, "Vicino - Visitantes (portaria)", com 32 requisições e 63 testes, todos aprovados no Collection Runner. Os cenários:
+  - documento gravado sem pontuação e documento só com pontuação (400);
+  - busca pelo documento com pontuação, pelo nome em minúsculas, sem parâmetro e só com pontuação, sem mostrar autorizações futuras nem canceladas;
+  - morador barrado na busca, nos presentes, na entrada e na saída (403);
+  - entrada (201), entrada repetida (409), fora do período (400), em autorização cancelada (409) e inexistente (404);
+  - presentes com o visitante e sem o documento;
+  - saída (200), saída repetida (409) e de acesso inexistente (404);
+  - nova entrada depois da saída (201);
+  - cancelamento com o visitante dentro: ele continua nos presentes, e o síndico registra a saída (200);
+  - limpeza.
+
+  O banco confirmou:
+  - 3 autorizações criadas, com o documento sem pontuação e a placa em maiúsculas;
+  - 2 acessos na mesma autorização, sem nenhum acesso extra das entradas recusadas, com a portaria registrando a entrada e a primeira saída e o síndico registrando a segunda;
+  - nenhum acesso aberto nem autorização `ATIVA` ao final.
+- **Documentação:** seção da portaria e formato do acesso no `api.md`, permissões, este arquivo e o README.
+- Registro do hash `d193f7e` na entrada da documentação da parte 2.
+
+### `d193f7e` (2026-10-10): documentação da parte 2 de visitantes
 
 - A documentação da parte 2 não entrou no commit `f61cba5`, que levou só o código. Este commit traz a entrada abaixo, a seção de visitantes no `api.md`, o README e o registro do hash `6342ff2`.
 
@@ -278,13 +317,10 @@ Feito nesta parte:
 - [ ] **Listagens de reservas fazem uma consulta extra por reserva** (espaço, unidade e bloco são `LAZY`). Aceitável no volume de um condomínio; usar `@EntityGraph` se for preciso.
 - [ ] **Extensão `btree_gist` no Railway:** confirmar antes do deploy que o PostgreSQL de produção permite instalá-la (a V7 depende dela).
 - [ ] **Testes de reservas só pelo Postman:** a coleção "Vicino - Reservas (transições e consultas)" cobre o módulo, mas não roda no build. Um teste automatizado do `ReservaService` com `Clock.fixed` seria o primeiro do projeto.
-- [ ] **Documento do visitante gravado com pontuação:** "123.456.789-00" e "12345678900" não se encontram na busca da portaria. Decidir na parte 3 se a pontuação é removida ao salvar e ao buscar.
 - [ ] **Cancelar uma autorização já terminada (400) não foi testado:** a API não deixa criar uma autorização com o fim no passado. O teste depende de uma linha inserida direto no banco, junto com o teste da anonimização (parte 4).
 - [ ] **`buscarUsuario` e `resolverUnidade` repetidos** no `ReservaService` e no `VisitanteService`. Extrair para um componente compartilhado se um terceiro módulo precisar da mesma regra.
 
 ## Próximos passos
 
-1. **Visitantes**, em partes:
-   - parte 3: rotas da portaria (busca de autorizações válidas, entrada, saída e presentes);
-   - parte 4: anonimização agendada (LGPD), ADR 0008 e fechamento da documentação.
+1. **Visitantes, parte 4:** anonimização agendada (LGPD), ADR 0008 e fechamento da documentação.
 2. **Pendências pequenas** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.
