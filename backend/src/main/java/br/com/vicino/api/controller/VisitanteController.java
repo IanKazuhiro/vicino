@@ -11,8 +11,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.com.vicino.api.dto.AcessoVisitanteResponse;
 import br.com.vicino.api.dto.AutorizacaoVisitanteRequest;
 import br.com.vicino.api.dto.AutorizacaoVisitanteResponse;
 import br.com.vicino.api.service.VisitanteService;
@@ -39,5 +41,26 @@ public class VisitanteController {
     @PostMapping("/autorizacoes/{id}/cancelar")
     public AutorizacaoVisitanteResponse cancelar(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return service.cancelar(Long.valueOf(jwt.getSubject()), id);
+    }
+
+    @GetMapping("/autorizacoes/validas")
+    public List<AutorizacaoVisitanteResponse> validas(@RequestParam(required = false) String busca) {
+        return service.buscarValidas(busca);
+    }
+
+    @PostMapping("/autorizacoes/{id}/entrada")
+    public ResponseEntity<AcessoVisitanteResponse> entrada(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        AcessoVisitanteResponse acesso = service.registrarEntrada(Long.valueOf(jwt.getSubject()), id);
+        return ResponseEntity.status(HttpStatus.CREATED).body(acesso);
+    }
+
+    @PostMapping("/acessos/{id}/saida")
+    public AcessoVisitanteResponse saida(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return service.registrarSaida(Long.valueOf(jwt.getSubject()), id);
+    }
+
+    @GetMapping("/presentes")
+    public List<AcessoVisitanteResponse> presentes() {
+        return service.presentes();
     }
 }

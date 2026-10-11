@@ -73,6 +73,7 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
 | `GET` em `/reservas/{id}`, `/reservas/minhas` e `/reservas/agenda` | Qualquer usuário autenticado; o service aplica as regras de visibilidade |
 | `POST` em `/visitantes/autorizacoes` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` |
 | `POST` em `/visitantes/autorizacoes/{id}/cancelar` e `GET` em `/visitantes/autorizacoes/minhas` | Qualquer usuário autenticado; o service confere a unidade e o perfil |
+| `GET` em `/visitantes/autorizacoes/validas` e `/visitantes/presentes`; `POST` em `/visitantes/autorizacoes/{id}/entrada` e `/visitantes/acessos/{id}/saida` | `PORTARIA`, `SINDICO`, `ADMINISTRADOR` |
 | `GET` nas demais rotas | Qualquer usuário autenticado |
 
 ## Blocos
@@ -315,7 +316,7 @@ Usado na resposta da criação (201), das transições (200), do detalhe e das l
 
 ## Visitantes
 
-Módulo em andamento: por enquanto, só as autorizações. As rotas da portaria (entrada, saída e presentes) e a anonimização dos dados (LGPD) vêm nas próximas partes.
+O morador, o síndico e o administrador autorizam visitantes por um período. A portaria confere a autorização, registra a entrada e a saída e vê quem está no condomínio. A anonimização dos dados pessoais (LGPD) vem na próxima parte.
 
 Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no formato `"2026-10-10T18:00:00"`.
 
@@ -324,6 +325,10 @@ Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no fo
 | POST | `/visitantes/autorizacoes` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` | Autoriza um visitante por um período | 201, 400, 401, 403, 404 |
 | GET | `/visitantes/autorizacoes/minhas` | Autenticado | Autorizações da unidade do usuário logado, do início mais recente para o mais antigo | 200, 401 |
 | POST | `/visitantes/autorizacoes/{id}/cancelar` | Autenticado (veja as regras) | `ATIVA` → `CANCELADA` | 200, 400, 401, 403, 404, 409 |
+| GET | `/visitantes/autorizacoes/validas?busca=` | `PORTARIA`, `SINDICO`, `ADMINISTRADOR` | Autorizações válidas agora, filtradas por nome ou documento | 200, 401, 403 |
+| POST | `/visitantes/autorizacoes/{id}/entrada` | `PORTARIA`, `SINDICO`, `ADMINISTRADOR` | Registra a entrada do visitante | 201, 400, 401, 403, 404, 409 |
+| POST | `/visitantes/acessos/{id}/saida` | `PORTARIA`, `SINDICO`, `ADMINISTRADOR` | Registra a saída do visitante | 200, 401, 403, 404, 409 |
+| GET | `/visitantes/presentes` | `PORTARIA`, `SINDICO`, `ADMINISTRADOR` | Visitantes que entraram e ainda não saíram | 200, 401, 403 |
 
 ### Autorização
 
@@ -341,7 +346,7 @@ Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no fo
 ```
 - `nome` (até 150), `documento` (até 20), `inicio` e `fim`: obrigatórios. Nome e documento em branco dão 400.
 - `telefone` (até 20) e `placa` (até 10): opcionais. Um valor só com espaços é gravado como `null`, e a placa é gravada em maiúsculas.
-- Nome e documento são gravados sem os espaços das pontas. O documento é gravado como foi digitado, com pontuação.
+- O nome é gravado sem os espaços das pontas. O documento é gravado **só com letras e números, em maiúsculas**: "123.456.789-00" vira "12345678900", e "12.345.678-x" vira "12345678X". Um documento sem nenhuma letra ou número (por exemplo, "---") dá 400.
 - `unidadeId`: o morador não precisa informar, porque a autorização vai para a unidade dele (se informar outra, 403). Para síndico e administrador é obrigatório (400 se faltar, 404 se a unidade não existir).
 
 **Regras do período**
@@ -380,7 +385,7 @@ Usado na resposta da criação (201), do cancelamento (200) e da lista.
   "unidadeId": 1,
   "unidade": "Bloco A - 101",
   "nome": "Carlos Visitante",
-  "documento": "123.456.789-00",
+  "documento": "12345678900",
   "telefone": null,
   "placa": "ABC1D23",
   "inicio": "2026-10-10T18:00:00",
@@ -391,6 +396,51 @@ Usado na resposta da criação (201), do cancelamento (200) e da lista.
 }
 ```
 Depois da anonimização (LGPD, prevista para a parte 4), `nome`, `documento`, `telefone` e `placa` voltam como `null`, e `anonimizadoEm` informa quando os dados foram apagados.
+
+### Portaria
+
+**Busca de autorizações válidas** (`GET /visitantes/autorizacoes/validas?busca=`)
+- Devolve só as autorizações `ATIVA` com `inicio ≤ agora < fim`, em ordem de nome, no formato da autorização. Autorizações futuras, vencidas ou canceladas não aparecem.
+- `busca` é opcional:
+  - compara com o **nome**, sem diferenciar maiúsculas;
+  - compara com o **documento**, depois de remover a pontuação do texto buscado, então "123.456.789-00" e "12345678900" encontram o mesmo visitante;
+  - sem `busca`, devolve todas as autorizações válidas agora;
+  - uma busca só com pontuação (por exemplo, `...`) não lista tudo: ela só encontraria um nome com esses caracteres.
+- O morador não acessa (403), porque a lista tem nome e documento de visitantes de todas as unidades.
+
+**Entrada** (`POST /visitantes/autorizacoes/{id}/entrada`, sem corpo)
+
+| Regra | Resposta se violada |
+|---|---|
+| A autorização existe | 404 |
+| A autorização está `ATIVA` | 409 |
+| O momento atual está dentro do período (`inicio ≤ agora < fim`) | 400 |
+| O visitante não tem outra entrada aberta (sem saída) nesta autorização | 409 |
+
+Devolve **201** com o acesso criado. Dentro do período, o visitante pode entrar e sair várias vezes, cada vez com um acesso novo, mas nunca com duas entradas abertas ao mesmo tempo. Mesmo com duas requisições simultâneas, o banco impede a segunda entrada aberta (índice único `ux_acesso_aberto`), e a segunda recebe 409.
+
+**Saída** (`POST /visitantes/acessos/{id}/saida`, sem corpo)
+- Devolve **200** com o acesso completo. Acesso inexistente dá 404, e uma saída já registrada dá 409.
+- Não confere o período nem o status da autorização: o visitante pode sair atrasado ou depois de a autorização ser cancelada. Cancelar uma autorização não encerra a visita de quem já entrou.
+
+**Presentes** (`GET /visitantes/presentes`)
+- Acessos com entrada e sem saída, da entrada mais antiga para a mais recente.
+
+### Formato do acesso
+
+Usado na resposta da entrada (201), da saída (200) e dos presentes. Não traz o documento (LGPD): ele é conferido na entrada, pela autorização.
+```json
+{
+  "id": 1,
+  "autorizacaoId": 1,
+  "nome": "Carlos Visitante",
+  "placa": "ABC1D23",
+  "unidade": "Bloco A - 101",
+  "entradaEm": "2026-10-10T18:05:12",
+  "saidaEm": null
+}
+```
+`entradaEm` e `saidaEm` estão na hora do condomínio. O `id` é o que a portaria usa para registrar a saída.
 
 ## Saúde da aplicação
 

@@ -4,18 +4,22 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import br.com.vicino.api.dto.AcessoVisitanteResponse;
 import br.com.vicino.api.dto.AutorizacaoVisitanteRequest;
 import br.com.vicino.api.dto.AutorizacaoVisitanteResponse;
 import br.com.vicino.api.enums.PerfilEnum;
 import br.com.vicino.api.enums.StatusAutorizacaoEnum;
+import br.com.vicino.api.model.AcessoVisitante;
 import br.com.vicino.api.model.AutorizacaoVisitante;
 import br.com.vicino.api.model.Unidade;
 import br.com.vicino.api.model.Usuario;
+import br.com.vicino.api.repository.AcessoVisitanteRepository;
 import br.com.vicino.api.repository.AutorizacaoVisitanteRepository;
 import br.com.vicino.api.repository.UnidadeRepository;
 import br.com.vicino.api.repository.UsuarioRepository;
@@ -29,6 +33,7 @@ public class VisitanteService {
     private final AutorizacaoVisitanteRepository autorizacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final UnidadeRepository unidadeRepository;
+    private final AcessoVisitanteRepository acessoRepository;
     private final Clock clock;
 
     @Transactional
@@ -41,7 +46,11 @@ public class VisitanteService {
         autorizacao.setUnidade(unidade);
         autorizacao.setCriadoPor(usuario);
         autorizacao.setNome(req.nome().trim());
-        autorizacao.setDocumento(req.documento().trim());
+        String documento = normalizarDocumento(req.documento());
+        if (documento.isEmpty()) {
+            throw erro(HttpStatus.BAD_REQUEST, "O documento deve conter letras ou números.");
+        }
+        autorizacao.setDocumento(documento);
         autorizacao.setTelefone(limpar(req.telefone()));
         String placa = limpar(req.placa());
         autorizacao.setPlaca(placa == null ? null : placa.toUpperCase());
@@ -82,6 +91,68 @@ public class VisitanteService {
 
         autorizacao.setStatus(StatusAutorizacaoEnum.CANCELADA);
         return AutorizacaoVisitanteResponse.de(autorizacao);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AutorizacaoVisitanteResponse> buscarValidas(String busca) {
+        String nome = busca == null ? "" : busca.trim();
+        String documento = normalizarDocumento(nome);
+        if (documento.isEmpty()) {
+            documento = nome;
+        }
+        return autorizacaoRepository.buscarValidas(StatusAutorizacaoEnum.ATIVA, LocalDateTime.now(clock), nome, documento)
+            .stream().map(AutorizacaoVisitanteResponse::de).toList();
+    }
+
+    @Transactional 
+    public AcessoVisitanteResponse registrarEntrada(Long usuarioId, Long autorizacaoId) {
+        Usuario usuario = buscarUsuario(usuarioId);
+        AutorizacaoVisitante autorizacao = buscarAutorizacao(autorizacaoId);
+        LocalDateTime agora = LocalDateTime.now(clock);
+
+        if (autorizacao.getStatus() != StatusAutorizacaoEnum.ATIVA) {
+            throw erro(HttpStatus.CONFLICT, "A autorização está " + autorizacao.getStatus() + " e não permite entrada.");
+        }
+
+        if (agora.isBefore(autorizacao.getInicio()) || !agora.isBefore(autorizacao.getFim())) {
+            throw erro(HttpStatus.BAD_REQUEST, "Fora do período da autorização (" + autorizacao.getInicio() + " a " + autorizacao.getFim() + ").");
+        }
+
+        if (acessoRepository.existsByAutorizacaoIdAndSaidaEmIsNull(autorizacaoId)) {
+            throw erro(HttpStatus.CONFLICT, "O visitante já está no condomínio. Registre uma saída antes de uma nova entrada.");
+        }
+
+        AcessoVisitante acesso = new AcessoVisitante();
+        acesso.setAutorizacao(autorizacao);
+        acesso.setEntradaEm(agora);
+        acesso.setRegistradoEntradaPor(usuario);
+        
+        try {
+            return AcessoVisitanteResponse.de(acessoRepository.saveAndFlush(acesso));
+        } catch (DataIntegrityViolationException e) {
+            throw erro(HttpStatus.CONFLICT, "O visitante já está no condomínio. Registre uma saída antes de uma nova entrada.");
+        }
+    }
+
+    @Transactional
+    public AcessoVisitanteResponse registrarSaida(Long usuarioId, Long acessoId) {
+        Usuario usuario = buscarUsuario(usuarioId);
+        AcessoVisitante acesso = acessoRepository.findById(acessoId)
+            .orElseThrow(() -> erro(HttpStatus.NOT_FOUND, "Acesso não encontrado com o ID: " + acessoId));
+
+        if (acesso.getSaidaEm() != null) {
+            throw erro(HttpStatus.CONFLICT, "A saída deste visitante já foi registrada.");
+        }
+
+        acesso.setSaidaEm(LocalDateTime.now(clock));
+        acesso.setRegistradoSaidaPor(usuario);
+        return AcessoVisitanteResponse.de(acesso);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AcessoVisitanteResponse> presentes() {
+        return acessoRepository.findBySaidaEmIsNullOrderByEntradaEm()
+            .stream().map(AcessoVisitanteResponse::de).toList();
     }
 
     private Usuario buscarUsuario(Long usuarioId) {
@@ -134,5 +205,9 @@ public class VisitanteService {
 
     private AutorizacaoVisitante buscarAutorizacao(Long id) {
         return autorizacaoRepository.findById(id).orElseThrow(() -> erro(HttpStatus.NOT_FOUND, "Autorização não encontrada com o ID: " + id));
+    }
+
+    private String normalizarDocumento(String documento) {
+        return documento.replaceAll("[^0-9A-Za-z]", "").toUpperCase();
     }
 }
