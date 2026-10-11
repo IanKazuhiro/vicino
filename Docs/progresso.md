@@ -6,12 +6,49 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **visitantes**. A base (banco, entidades, repositories e DTOs) está pronta; faltam as regras e as rotas.
+- **Em andamento:** módulo de **visitantes**. Autorizações prontas e testadas (criar, "minhas" e cancelar); faltam as rotas da portaria e a anonimização (LGPD).
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### `pendente` (2026-10-10): documentação da parte 1 de visitantes
+### `pendente` (2026-10-10): documentação da parte 2 de visitantes
+
+- A documentação da parte 2 não entrou no commit `f61cba5`, que levou só o código. Este commit traz a entrada abaixo, a seção de visitantes no `api.md`, o README e o registro do hash `6342ff2`.
+
+### `f61cba5` (2026-10-10): visitantes, parte 2 (autorizações)
+
+- **`VisitanteService`:**
+  - **`autorizar`:**
+    - `buscarUsuario` e `resolverUnidade` foram **repetidos** do `ReservaService`, de propósito: são poucas linhas, as mensagens são diferentes ("reservar" e "autorizar visitantes"), e extrair agora obrigaria a mexer no `ReservaService`, que já está testado. A extração fica para quando um terceiro módulo precisar da mesma regra.
+    - O morador autoriza só para a própria unidade (403 para outra). Síndico e admin informam o `unidadeId` (400 se faltar, 404 se não existir). A portaria recebe 403.
+    - `validarPeriodo`: o início é anterior ao fim, o fim está no futuro e a duração é de no máximo 30 dias (400). O início pode já ter passado.
+    - Nome e documento com `trim()`. O telefone e a placa passam por `limpar` (texto em branco vira `null`), e a placa é gravada em maiúsculas.
+    - Status sempre `ATIVA`, gravado com `save`, porque não há constraint de conflito para converter em 409.
+  - **`minhas`:** autorizações da unidade, do início mais recente para o mais antigo. Quem não tem unidade recebe uma lista vazia.
+  - **`cancelar`:**
+    - A portaria recebe 403, e o morador só cancela autorizações da própria unidade (403).
+    - A autorização precisa estar `ATIVA` (409) e o período não pode ter terminado (400). O cancelamento durante o período é permitido.
+    - O novo status é gravado por *dirty checking*.
+- **`VisitanteController`:** `@RequestMapping("/visitantes")`, já pensando nas rotas da portaria da parte 3.
+  - `POST /visitantes/autorizacoes` devolve 201 **sem `Location`**, porque não há `GET` por id.
+  - `GET /visitantes/autorizacoes/minhas`.
+  - `POST /visitantes/autorizacoes/{id}/cancelar`.
+- **`SecurityConfig`:** `POST /visitantes/autorizacoes` só para `MORADOR`, `SINDICO` e `ADMINISTRADOR`. As outras duas rotas exigem só autenticação, e o service confere unidade e perfil.
+- **Testes:** coleção nova no Postman, "Vicino - Visitantes (autorizações)", com 31 requisições e 57 testes, todos aprovados no Collection Runner. Os cenários:
+  - criação com `trim`, placa em maiúsculas e telefone vazio virando `null` (201);
+  - início no passado (201);
+  - fim antes do início, fim no passado e mais de 30 dias (400);
+  - sem documento e nome em branco (400);
+  - morador para outra unidade (403), portaria (403) e sem token (401);
+  - síndico sem unidade (400), com unidade inexistente (404) e para a unidade 102 (201);
+  - "minhas" do morador, só com a própria unidade e em ordem, e "minhas" vazia para síndico e portaria;
+  - cancelamento de outra unidade (403), pela portaria (403), durante o período (200), repetido (409) e de autorização inexistente (404);
+  - limpeza: o síndico cancela as autorizações restantes.
+
+  O banco confirmou 3 autorizações criadas, com os valores normalizados, e 3 atualizações para `CANCELADA`. As requisições recusadas não gravaram nada.
+- **Documentação:** ficou para o commit seguinte (ver a entrada acima).
+
+### `6342ff2` (2026-10-10): documentação da parte 1 de visitantes
 
 - A documentação da parte 1 não entrou no commit `a357750`, porque as alterações se perderam antes dele. Este commit traz a entrada abaixo, o "Estado atual", os "Próximos passos" e o README.
 - Registro do hash `9ce12cf` na entrada das reservas.
@@ -241,11 +278,13 @@ Feito nesta parte:
 - [ ] **Listagens de reservas fazem uma consulta extra por reserva** (espaço, unidade e bloco são `LAZY`). Aceitável no volume de um condomínio; usar `@EntityGraph` se for preciso.
 - [ ] **Extensão `btree_gist` no Railway:** confirmar antes do deploy que o PostgreSQL de produção permite instalá-la (a V7 depende dela).
 - [ ] **Testes de reservas só pelo Postman:** a coleção "Vicino - Reservas (transições e consultas)" cobre o módulo, mas não roda no build. Um teste automatizado do `ReservaService` com `Clock.fixed` seria o primeiro do projeto.
+- [ ] **Documento do visitante gravado com pontuação:** "123.456.789-00" e "12345678900" não se encontram na busca da portaria. Decidir na parte 3 se a pontuação é removida ao salvar e ao buscar.
+- [ ] **Cancelar uma autorização já terminada (400) não foi testado:** a API não deixa criar uma autorização com o fim no passado. O teste depende de uma linha inserida direto no banco, junto com o teste da anonimização (parte 4).
+- [ ] **`buscarUsuario` e `resolverUnidade` repetidos** no `ReservaService` e no `VisitanteService`. Extrair para um componente compartilhado se um terceiro módulo precisar da mesma regra.
 
 ## Próximos passos
 
 1. **Visitantes**, em partes:
-   - parte 2: autorizações pelo morador, síndico e admin (criar, "minhas" e cancelar);
    - parte 3: rotas da portaria (busca de autorizações válidas, entrada, saída e presentes);
    - parte 4: anonimização agendada (LGPD), ADR 0008 e fechamento da documentação.
 2. **Pendências pequenas** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.

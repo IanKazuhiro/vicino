@@ -71,6 +71,8 @@ Conforme o [ADR 0004](0004-perfis-e-permissoes.md):
 | `POST` em `/reservas/{id}/cancelar` | Qualquer usuário autenticado; o service confere o dono e o prazo |
 | `GET` em `/reservas` (listagem geral) | `SINDICO`, `ADMINISTRADOR` |
 | `GET` em `/reservas/{id}`, `/reservas/minhas` e `/reservas/agenda` | Qualquer usuário autenticado; o service aplica as regras de visibilidade |
+| `POST` em `/visitantes/autorizacoes` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` |
+| `POST` em `/visitantes/autorizacoes/{id}/cancelar` e `GET` em `/visitantes/autorizacoes/minhas` | Qualquer usuário autenticado; o service confere a unidade e o perfil |
 | `GET` nas demais rotas | Qualquer usuário autenticado |
 
 ## Blocos
@@ -310,6 +312,85 @@ Usado na resposta da criação (201), das transições (200), do detalhe e das l
   "criadoEm": "2026-10-07T22:15:03.123Z"
 }
 ```
+
+## Visitantes
+
+Módulo em andamento: por enquanto, só as autorizações. As rotas da portaria (entrada, saída e presentes) e a anonimização dos dados (LGPD) vêm nas próximas partes.
+
+Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no formato `"2026-10-10T18:00:00"`.
+
+| Método | Rota | Acesso | Descrição | Respostas |
+|---|---|---|---|---|
+| POST | `/visitantes/autorizacoes` | `MORADOR`, `SINDICO`, `ADMINISTRADOR` | Autoriza um visitante por um período | 201, 400, 401, 403, 404 |
+| GET | `/visitantes/autorizacoes/minhas` | Autenticado | Autorizações da unidade do usuário logado, do início mais recente para o mais antigo | 200, 401 |
+| POST | `/visitantes/autorizacoes/{id}/cancelar` | Autenticado (veja as regras) | `ATIVA` → `CANCELADA` | 200, 400, 401, 403, 404, 409 |
+
+### Autorização
+
+**Requisição**
+```json
+{
+  "unidadeId": 2,
+  "nome": "Carlos Visitante",
+  "documento": "123.456.789-00",
+  "telefone": "92999990000",
+  "placa": "ABC1D23",
+  "inicio": "2026-10-10T18:00:00",
+  "fim": "2026-10-11T18:00:00"
+}
+```
+- `nome` (até 150), `documento` (até 20), `inicio` e `fim`: obrigatórios. Nome e documento em branco dão 400.
+- `telefone` (até 20) e `placa` (até 10): opcionais. Um valor só com espaços é gravado como `null`, e a placa é gravada em maiúsculas.
+- Nome e documento são gravados sem os espaços das pontas. O documento é gravado como foi digitado, com pontuação.
+- `unidadeId`: o morador não precisa informar, porque a autorização vai para a unidade dele (se informar outra, 403). Para síndico e administrador é obrigatório (400 se faltar, 404 se a unidade não existir).
+
+**Regras do período**
+
+| Regra | Resposta se violada |
+|---|---|
+| O início é anterior ao fim | 400 |
+| O fim ainda não passou | 400 |
+| A duração é de no máximo 30 dias | 400 |
+| Quem autoriza não é da portaria, e o usuário está ativo | 403 |
+
+O início pode ser imediato ou já ter passado, para autorizar quem chegou agora. Diferente das reservas, o período pode atravessar a meia-noite. A autorização nasce sempre `ATIVA`, sem aprovação do síndico.
+
+### Cancelamento
+
+Sem corpo. Devolve **200** com a autorização atualizada.
+
+| Quem cancela | Regras | Erros |
+|---|---|---|
+| Morador | Só autorizações da própria unidade | 403 (outra unidade) |
+| Síndico ou administrador | Qualquer autorização | |
+| Portaria | Não permitido | 403 |
+
+Em todos os casos, a autorização precisa estar `ATIVA` (409) e o período ainda não pode ter terminado (400). Ela pode ser cancelada **durante** o período, por exemplo para dispensar a diarista no meio da semana.
+
+### Consultas
+
+`GET /visitantes/autorizacoes/minhas` devolve as autorizações da unidade do usuário logado, em qualquer status. Para quem não tem unidade (síndico, administrador e portaria), devolve uma lista vazia.
+
+### Formato da autorização
+
+Usado na resposta da criação (201), do cancelamento (200) e da lista.
+```json
+{
+  "id": 1,
+  "unidadeId": 1,
+  "unidade": "Bloco A - 101",
+  "nome": "Carlos Visitante",
+  "documento": "123.456.789-00",
+  "telefone": null,
+  "placa": "ABC1D23",
+  "inicio": "2026-10-10T18:00:00",
+  "fim": "2026-10-11T18:00:00",
+  "status": "ATIVA",
+  "criadoEm": "2026-10-10T22:00:00.123Z",
+  "anonimizadoEm": null
+}
+```
+Depois da anonimização (LGPD, prevista para a parte 4), `nome`, `documento`, `telefone` e `placa` voltam como `null`, e `anonimizadoEm` informa quando os dados foram apagados.
 
 ## Saúde da aplicação
 
