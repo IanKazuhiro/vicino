@@ -49,9 +49,10 @@ No sistema, esses atores correspondem aos perfis `MORADOR`, `PORTARIA`, `SINDICO
 - **Quais regras valem para cada espaço?** São configuradas por espaço pelo síndico ou administrador: horário de funcionamento, duração mínima e máxima, antecedência mínima e máxima e limite de reservas por unidade ([ADR 0006](0006-espacos-comuns-e-janela-de-reserva.md)).
 - **Quais espaços exigem aprovação do síndico?** Também é configurável por espaço, com o campo `exigeAprovacao`.
 - **Morador inadimplente pode reservar?** A regra fica fora do MVP, porque o controle financeiro não faz parte do escopo.
+- **Visitante tem validade por data e hora, ou por tempo de permanência?** Por data e hora: a autorização tem início e fim, com no máximo 30 dias, e cobre tanto a visita única quanto a recorrente ([ADR 0008](0008-visitantes-e-lgpd.md)).
+- **Quais dados do visitante são obrigatórios?** Nome e documento. Telefone e placa são opcionais.
+- **Por quanto tempo os dados de visitantes são mantidos?** Até 90 dias depois do fim da autorização. Depois disso, nome, documento, telefone e placa são anonimizados, e os horários de entrada e saída continuam sem identificar a pessoa.
 
 ## Perguntas em aberto
 
-- Visitante tem validade por data e hora, ou por tempo de permanência?
-- Quais dados do visitante são obrigatórios (nome, documento, placa)?
-- Por quanto tempo os dados de visitantes são mantidos?
+Nenhuma no momento.

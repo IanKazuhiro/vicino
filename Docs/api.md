@@ -316,7 +316,9 @@ Usado na resposta da criação (201), das transições (200), do detalhe e das l
 
 ## Visitantes
 
-O morador, o síndico e o administrador autorizam visitantes por um período. A portaria confere a autorização, registra a entrada e a saída e vê quem está no condomínio. A anonimização dos dados pessoais (LGPD) vem na próxima parte.
+Regras e motivação no [ADR 0008](0008-visitantes-e-lgpd.md).
+
+O morador, o síndico e o administrador autorizam visitantes por um período. A portaria confere a autorização, registra a entrada e a saída e vê quem está no condomínio. 90 dias depois do fim de cada autorização, os dados pessoais do visitante são anonimizados (LGPD).
 
 Datas e horas são **locais do condomínio** (`America/Manaus`), sem fuso, no formato `"2026-10-10T18:00:00"`.
 
@@ -395,7 +397,7 @@ Usado na resposta da criação (201), do cancelamento (200) e da lista.
   "anonimizadoEm": null
 }
 ```
-Depois da anonimização (LGPD, prevista para a parte 4), `nome`, `documento`, `telefone` e `placa` voltam como `null`, e `anonimizadoEm` informa quando os dados foram apagados.
+**Anonimização (LGPD):** uma tarefa agendada roda todo dia às 03:00, na hora do condomínio, e apaga `nome`, `documento`, `telefone` e `placa` das autorizações cujo `fim` passou há mais de 90 dias. Depois disso, esses campos voltam como `null`, e `anonimizadoEm` informa quando os dados foram apagados. A autorização e os acessos continuam, sem identificar a pessoa. O prazo e o horário ficam nas propriedades `vicino.visitantes.retencao-dias` e `vicino.visitantes.anonimizacao-cron`.
 
 ### Portaria
 

@@ -6,12 +6,38 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
-- **Em andamento:** módulo de **visitantes**. Autorizações (criar, "minhas" e cancelar) e rotas da portaria (busca, entrada, saída e presentes) prontas; falta a anonimização (LGPD).
+- **Visitantes:** módulo completo. Autorizações (criar, "minhas" e cancelar), rotas da portaria (busca, entrada, saída e presentes) e anonimização diária dos dados pessoais pela LGPD ([ADR 0008](0008-visitantes-e-lgpd.md)). Testado com duas coleções do Postman e com dados inseridos no banco.
 - **Front-end:** não iniciado.
 
 ## Histórico de commits
 
-### `pendente` (2026-10-11): visitantes, parte 3 (portaria)
+### `pendente` (2026-10-14): visitantes, parte 4 (LGPD e fechamento do módulo)
+
+- **`application.properties`:** `vicino.visitantes.anonimizacao-cron=0 0 3 * * *` (todo dia às 03:00), ao lado da `retencao-dias=90` criada na parte 1.
+- **`SchedulingConfig`:** `@EnableScheduling`, o primeiro agendamento do projeto. Sem ele, o Spring ignora o `@Scheduled` em silêncio.
+- **`VisitanteService.anonimizarExpiradas()`:**
+  - busca as autorizações com `fim` anterior a `agora − 90 dias` e ainda sem `anonimizado_em`;
+  - grava `null` em nome, documento, telefone e placa e preenche o `anonimizado_em` com `clock.instant()`, por *dirty checking*;
+  - devolve quantas autorizações anonimizou;
+  - o prazo vem da propriedade, com o `@Value` do Spring num campo não `final`, como no `TokenService`.
+- **`AnonimizacaoVisitantesJob`** (pacote `config`, ao lado do `AdminInicial`):
+  - `@Scheduled(cron = "${vicino.visitantes.anonimizacao-cron}", zone = "${vicino.fuso-horario}")`. O `zone` faz as 03:00 serem na hora do condomínio, também no Railway, que roda em UTC;
+  - só chama o service e registra no log quantas autorizações foram anonimizadas.
+- **Teste da anonimização:**
+  - três autorizações inseridas direto no banco: uma vencida há 91 dias, com um acesso; uma vencida há 89 dias; e uma que terminou há 1 hora;
+  - a aplicação subiu com a variável de ambiente `VICINO_VISITANTES_ANONIMIZACAOCRON="0 * * * * *"`, para a tarefa rodar a cada minuto sem mudar o arquivo;
+  - resultado: só a de 91 dias foi anonimizada (nome, documento, telefone e placa nulos e `anonimizado_em` preenchido), e o acesso dela continuou com os horários e quem registrou; a de 89 dias manteve os dados; nas execuções seguintes, nada mais foi alterado.
+- **Pendência da parte 2 resolvida:** cancelar a autorização que já tinha terminado respondeu 400 ("A autorização já terminou."), e ela continuou `ATIVA` no banco.
+- **Documentação:**
+  - ADR 0008 (visitantes e LGPD);
+  - `api.md` com a anonimização e o link para o ADR;
+  - Visão e Escopo com as três perguntas sobre visitantes respondidas;
+  - este arquivo e o README.
+- Registro dos hashes `5ebce59` e `73b250a` na entrada da parte 3.
+
+### `5ebce59` e `73b250a` (2026-10-11): visitantes, parte 3 (portaria)
+
+A parte 3 foi para o GitHub em dois commits com a mesma mensagem. O `5ebce59` levou o código e o `api.md`; o `73b250a`, este arquivo e o README, que tinham ficado de fora porque o `git add` foi rodado dentro de `backend/`.
 
 - **Documento normalizado:** gravado e buscado só com letras e números, em maiúsculas ("123.456.789-00" vira "12345678900"). Assim o porteiro encontra o visitante digitando o documento com ou sem pontuação. Um documento que fica vazio depois da limpeza (por exemplo, "---") dá 400. As 3 autorizações de teste anteriores, todas `CANCELADA`, ficaram com a pontuação; como nunca aparecem na busca, não foi preciso migration.
 - **`AutorizacaoVisitanteRepository.buscarValidas`:** recebe dois parâmetros, o `nome` (texto como digitado, comparado sem diferenciar maiúsculas) e o `documento` (texto sem pontuação).
@@ -317,10 +343,11 @@ Feito nesta parte:
 - [ ] **Listagens de reservas fazem uma consulta extra por reserva** (espaço, unidade e bloco são `LAZY`). Aceitável no volume de um condomínio; usar `@EntityGraph` se for preciso.
 - [ ] **Extensão `btree_gist` no Railway:** confirmar antes do deploy que o PostgreSQL de produção permite instalá-la (a V7 depende dela).
 - [ ] **Testes de reservas só pelo Postman:** a coleção "Vicino - Reservas (transições e consultas)" cobre o módulo, mas não roda no build. Um teste automatizado do `ReservaService` com `Clock.fixed` seria o primeiro do projeto.
-- [ ] **Cancelar uma autorização já terminada (400) não foi testado:** a API não deixa criar uma autorização com o fim no passado. O teste depende de uma linha inserida direto no banco, junto com o teste da anonimização (parte 4).
+- [ ] **Autorizações de teste no banco local:** as autorizações 8 ("LGPD Teste 89 dias") e 9 ("LGPD Teste terminada") ficaram `ATIVA`, mas com o período já encerrado, então não aparecem para a portaria. A 8 vai ser anonimizada sozinha pela tarefa diária. Podem ser removidas quando for conveniente.
+- [ ] **Anonimização com mais de uma instância:** a tarefa rodaria em todas as instâncias. É inofensivo, porque a segunda execução não encontra nada, mas, se o deploy usar várias instâncias, vale um bloqueio distribuído (por exemplo, ShedLock).
 - [ ] **`buscarUsuario` e `resolverUnidade` repetidos** no `ReservaService` e no `VisitanteService`. Extrair para um componente compartilhado se um terceiro módulo precisar da mesma regra.
 
 ## Próximos passos
 
-1. **Visitantes, parte 4:** anonimização agendada (LGPD), ADR 0008 e fechamento da documentação.
+1. **Definir o próximo passo:** os dois módulos do MVP estão prontos no back-end. Os caminhos possíveis são as pendências desta lista (tratamento global de erros, testes automatizados, `GET /usuarios/me`), o deploy no Railway e o início do front-end.
 2. **Pendências pequenas** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.

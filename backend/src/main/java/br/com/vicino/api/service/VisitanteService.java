@@ -1,9 +1,11 @@
 package br.com.vicino.api.service;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,8 @@ public class VisitanteService {
     private final UnidadeRepository unidadeRepository;
     private final AcessoVisitanteRepository acessoRepository;
     private final Clock clock;
+    @Value ("${vicino.visitantes.retencao-dias}")
+    private int retencaoDias;
 
     @Transactional
     public AutorizacaoVisitanteResponse autorizar(Long usuarioId, AutorizacaoVisitanteRequest req) {
@@ -153,6 +157,22 @@ public class VisitanteService {
     public List<AcessoVisitanteResponse> presentes() {
         return acessoRepository.findBySaidaEmIsNullOrderByEntradaEm()
             .stream().map(AcessoVisitanteResponse::de).toList();
+    }
+
+    @Transactional
+    public int anonimizarExpiradas() {
+        LocalDateTime limite = LocalDateTime.now(clock).minusDays(retencaoDias);
+        List<AutorizacaoVisitante> expiradas = autorizacaoRepository.findByFimBeforeAndAnonimizadoEmIsNull(limite);
+        Instant agora = clock.instant();
+
+        for (AutorizacaoVisitante autorizacao : expiradas) {
+            autorizacao.setNome(null);
+            autorizacao.setDocumento(null);
+            autorizacao.setTelefone(null);
+            autorizacao.setPlaca(null);
+            autorizacao.setAnonimizadoEm(agora);
+        }
+        return expiradas.size();
     }
 
     private Usuario buscarUsuario(Long usuarioId) {

@@ -4,7 +4,7 @@ Sistema de gestão de condomínios. O MVP cobre o **agendamento de espaços comu
 
 ## Status
 
-Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** está em andamento: o morador, o síndico e o administrador autorizam e cancelam visitantes, e a portaria busca as autorizações válidas, registra a entrada e a saída e vê quem está no condomínio. Falta a anonimização dos dados pessoais pela LGPD. O front-end ainda não foi iniciado.
+Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** também está completo: o morador, o síndico e o administrador autorizam e cancelam visitantes, a portaria busca as autorizações válidas, registra a entrada e a saída e vê quem está no condomínio, e os dados pessoais dos visitantes são anonimizados 90 dias depois do fim da autorização (LGPD). O front-end ainda não foi iniciado.
 
 Detalhes do que foi feito, pendências e próximos passos estão em [Docs/progresso.md](Docs/progresso.md).
 
@@ -43,7 +43,8 @@ vicino/
 ### Back-end (`backend/src/main/java/br/com/vicino/api`)
 
 ```
-config/       # SecurityConfig (regras de acesso e JWT), PasswordConfig, ClockConfig e AdminInicial
+config/       # SecurityConfig (regras de acesso e JWT), PasswordConfig, ClockConfig, SchedulingConfig,
+              # AdminInicial e AnonimizacaoVisitantesJob (tarefa diária da LGPD)
 controller/   # endpoints REST
 dto/          # records de entrada (Request) e saída (Response)
 enums/        # PerfilEnum, StatusReservaEnum e StatusAutorizacaoEnum
@@ -131,6 +132,7 @@ Corpos, validações, permissões e códigos de resposta: [Docs/api.md](Docs/api
 | [ADR 0005](Docs/0005-autenticacao-jwt.md) | Autenticação com JWT (HS256) e OAuth2 Resource Server |
 | [ADR 0006](Docs/0006-espacos-comuns-e-janela-de-reserva.md) | Espaços comuns e janela de reserva configurável |
 | [ADR 0007](Docs/0007-reservas.md) | Reservas: permissões, ciclo de vida, conflito no banco, fuso e agenda |
+| [ADR 0008](Docs/0008-visitantes-e-lgpd.md) | Visitantes: autorização por período, entrada e saída, busca da portaria e anonimização (LGPD) |
 
 As decisões de arquitetura (ADRs) ficam em `Docs/`, um arquivo por decisão, numerados em sequência.
 
