@@ -1,0 +1,103 @@
+/*
+ * Design tokens do Vicino (paleta "Vizinhança calorosa", ADR 0009).
+ * É a única fonte de cores, raios, espaçamentos e sombras: os componentes usam
+ * sempre var(--token), nunca um valor solto.
+ */
+:root {
+  /* Cores de base */
+  --color-bg: #f7f3ec;
+  --color-olive: #2e4034;
+  --color-accent: #ad5d2f; /* terracota escurecida: contraste AA com texto branco */
+  --color-accent-text: #8f4a22; /* links e textos de destaque */
+  --color-accent-text-hover: #6e3815;
+  --color-sand: #e8dfc8;
+  --color-danger: #a3362b;
+
+  /* Só decoração (manchas do fundo e tintas). Nunca como fundo de texto. */
+  --color-terracotta: #c4703f;
+  --color-olive-light: #7e8f63;
+  --color-peach: #e3a878;
+
+  /* Texto */
+  --color-text: #3d3229;
+  --color-text-2: #5e4e41;
+  --color-text-3: #6b5a4c;
+  --color-icon-muted: #7a685a;
+  --color-placeholder: #8a7a6c;
+  --color-on-accent: #ffffff;
+  --color-on-dark: #f7f3ec; /* texto sobre o card glass-dark */
+  --color-on-dark-2: #e8dfc8;
+
+  /* Tintas (fundos de ícones e selos) */
+  --tint-accent: rgba(196, 112, 63, 0.16);
+  --tint-olive: rgba(46, 64, 52, 0.12);
+  --tint-danger: rgba(163, 54, 43, 0.1);
+  --tint-on-dark: rgba(232, 223, 200, 0.18);
+
+  /* Linhas */
+  --divider: rgba(61, 50, 41, 0.1);
+  --border-input: rgba(61, 50, 41, 0.12);
+
+  /* Tipografia */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-logo: 44px;
+  --text-h1: 26px;
+  --text-title: 22px;
+  --text-section: 16px;
+  --text-body: 15px;
+  --text-secondary: 14px;
+  --text-small: 13px;
+  --text-caption: 12px;
+  --text-overline: 11px;
+  --tracking-display: -0.01em;
+  --tracking-overline: 0.12em;
+
+  /* Raios */
+  --radius-login: 30px;
+  --radius-card-lg: 28px;
+  --radius-card: 24px;
+  --radius-nav: 26px;
+  --radius-tile: 22px;
+  --radius-button: 18px;
+  --radius-input: 16px;
+  --radius-chip: 14px;
+  --radius-pill: 999px;
+
+  /* Espaçamento (escala de 4) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --page-gutter: 20px;
+
+  /* Sombras */
+  --shadow-glass: 0 6px 20px rgba(61, 50, 41, 0.08);
+  --shadow-glass-strong: 0 12px 40px rgba(61, 50, 41, 0.14);
+  --shadow-glass-dark: 0 14px 36px rgba(46, 64, 52, 0.3);
+  --shadow-nav: 0 12px 32px rgba(61, 50, 41, 0.16);
+  --shadow-button: 0 10px 24px rgba(173, 93, 47, 0.32);
+  --ring-input: 0 0 0 3px rgba(173, 93, 47, 0.18);
+
+  /* Movimento */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Medidas */
+  --touch-target: 44px;
+  --input-height: 52px;
+  --button-height: 56px;
+  --bottom-nav-height: 72px;
+  --bottom-nav-space: 112px; /* espaço reservado para a barra inferior não cobrir o conteúdo */
+  --content-max-width: 1100px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-gutter: 24px;
+  }
+}

@@ -74,7 +74,9 @@ O Vicino é usado por vizinhos, não por uma equipe de escritório. O visual mis
 - **Uma ação principal por tela:** botão terracota cheio, de 56 px. As outras ações são de vidro.
 - **O status aparece em texto, nunca só pela cor:** "Confirmada", "Pendente", "Liberado" e "Aguardando" ficam escritos no selo.
 - **Contraste mínimo de 4,5:1** para texto normal e 3:1 para texto a partir de 24 px. Todo par de cores novo precisa ser conferido.
-- **Fallback obrigatório do vidro:** sem suporte a `backdrop-filter` ou com `prefers-reduced-transparency`, as superfícies ficam quase opacas: branco a 92% e oliva a 97%.
+- **Menos transparência e fallback do vidro:**
+  - **Com `prefers-reduced-transparency`:** o vidro continua, com o desfoque, mas o fundo fica mais opaco (branco a 70%, barra a 78%, oliva a 90%).
+  - **Sem suporte a `backdrop-filter`:** as superfícies ficam quase opacas (branco a 92%, oliva a 97%), porque não há desfoque para dar contraste.
 - **Toque e movimento:**
   - alvos de toque de pelo menos 44×44 px;
   - transições de 150 a 200 ms;
@@ -96,6 +98,7 @@ O Vicino é usado por vizinhos, não por uma equipe de escritório. O visual mis
 
 ## Consequências
 
+- **O guia pedia o fallback quase opaco também para `prefers-reduced-transparency`.** Mas o Windows com "Efeitos de transparência" desligado, uma configuração comum, ativa essa preferência, e esses usuários nunca veriam o vidro. Por isso a regra ficou mais suave: o vidro continua, só com mais opacidade. O quase opaco ficou só para navegadores sem `backdrop-filter`.
 - **O vidro custa desempenho:** `backdrop-filter` é pesado em celulares mais simples. Por isso o fallback quase opaco e o desfoque só em superfícies, não em listas longas item por item.
 - **`tokens.css` é a única fonte das cores:** uma cor solta num `.module.css` deve virar token numa revisão.
 - **Sem modo escuro no MVP.**

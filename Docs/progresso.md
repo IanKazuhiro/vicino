@@ -7,14 +7,49 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
 - **Visitantes:** módulo completo. Autorizações (criar, "minhas" e cancelar), rotas da portaria (busca, entrada, saída e presentes) e anonimização diária dos dados pessoais pela LGPD ([ADR 0008](0008-visitantes-e-lgpd.md)). Testado com duas coleções do Postman e com dados inseridos no banco.
-- **Front-end:** planejado, ainda sem código.
+- **Front-end:** em construção. O setup está pronto (etapa 1 de 10), mas ainda não há telas.
   - **Visual:** protótipo aprovado de Login e Home em [`prototipo/`](prototipo/), com a paleta "Vizinhança calorosa" e glassmorphism ([ADR 0009](0009-estilo-do-front-end.md)).
   - **Arquitetura:** React com TypeScript (Vite) e CSS Modules, com contratos híbridos: as telas com back-end usam a API real, e as outras só mock ([ADR 0010](0010-arquitetura-do-front-end.md)).
   - **Construção:** em 10 etapas, com o código escrito pelo Claude e os commits feitos pelo Ian.
 
 ## Histórico de commits
 
-### `pendente` (2026-10-14): front-end, etapa 0 (protótipo e decisões)
+### `pendente` (2026-10-15): front-end, etapa 1 (setup e design tokens)
+
+- **Projeto em `frontend/`** montado à mão, sem o assistente interativo do Vite, para controlar cada arquivo.
+- **Versões instaladas** (as mais recentes, sem nenhuma vulnerabilidade apontada pelo npm):
+  - React 19.3 e React Router 8;
+  - Vite 8, TypeScript 6 e Vitest 5;
+  - ESLint 10 com typescript-eslint;
+  - TanStack Query 5, React Hook Form 7, Zod 4 e date-fns 4;
+  - Axios e lucide-react.
+- **TypeScript `strict`** com regras extras: variáveis e parâmetros não usados, `verbatimModuleSyntax`, `erasableSyntaxOnly`.
+- **Qualidade:** ESLint (regras do React Hooks e do Fast Refresh) com `eslint-config-prettier` no fim, Prettier (aspas simples, vírgula no fim, 100 colunas), e Vitest com jsdom e Testing Library (`src/test/setup.ts`).
+- **Scripts:** `dev`, `build`, `lint`, `format`, `format:check`, `test` e `test:watch`.
+- **Design system em CSS:**
+  - `tokens.css`: cores, tintas, tipografia, raios, espaçamentos, sombras, movimento e medidas;
+  - `globals.css`: reset, foco visível em tudo, `.sr-only` e `prefers-reduced-motion`;
+  - `glass.css`: as receitas glass, glass-strong, glass-dark, glass-nav e glass-input:
+    - com `prefers-reduced-transparency`, o vidro fica mais opaco (70% a 90%) e mantém o desfoque;
+    - sem `backdrop-filter`, o fallback é quase opaco.
+- **`BackgroundBlobs`:** variantes `login` (4 manchas) e `app` (3), nas posições do protótipo, com uma flutuação lenta desligada por `prefers-reduced-motion`.
+- **`index.html`:** `lang="pt-BR"`, fontes Fraunces e Manrope e favicon com a casa com coração.
+- **Proxy do Vite:** `/api` → `http://localhost:8080`, sem o prefixo. O `.env.example` traz `VITE_API_URL=/api` e `VITE_USE_MOCKS=true`.
+- **Estrutura de pastas do guia** criada, com `.gitkeep` nas pastas ainda vazias.
+- **Tela provisória** para conferir o vidro e as fontes. É substituída pelo router na etapa 3.
+- **`.claude/launch.json`:** configuração que abre o `npm run dev` no navegador do Claude Code.
+- **Verificação:**
+  - `lint`, `build` e 2 testes do `BackgroundBlobs` passaram;
+  - no navegador, as fontes carregaram, não houve erro no console nem rolagem horizontal em 360 e 1440 px, e o vidro ficou igual ao protótipo.
+
+**Ajuste no fallback:** na primeira versão, o vidro aparecia quase opaco na máquina do Ian.
+- **Causa:** o Windows está com **"Efeitos de transparência" desligado**, e o navegador repassa isso como `prefers-reduced-transparency: reduce`. O guia mandava trocar o vidro por branco a 92% nesse caso.
+- **Correção:** como essa configuração é comum, a regra ficou mais suave, mantendo o desfoque com mais opacidade (ver o ADR 0009).
+- **Conferido no navegador:** fundo a 70% e `blur(20px)`.
+
+- Registro do hash `7408a17` na entrada da etapa 0.
+
+### `7408a17` (2026-10-14): front-end, etapa 0 (protótipo e decisões)
 
 - **`Docs/prototipo/`:** o protótipo aprovado (`prototipo-login.html` e `prototipo-home.html`) e o guia do front-end (`PROMPT-FRONTEND-VICINO.md`), que são a fonte da verdade visual.
 - **ADR 0009 (estilo do front-end):**

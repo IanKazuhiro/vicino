@@ -4,7 +4,7 @@ Sistema de gestão de condomínios. O MVP cobre o **agendamento de espaços comu
 
 ## Status
 
-Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** também está completo: o morador, o síndico e o administrador autorizam e cancelam visitantes, a portaria busca as autorizações válidas, registra a entrada e a saída e vê quem está no condomínio, e os dados pessoais dos visitantes são anonimizados 90 dias depois do fim da autorização (LGPD). O front-end está planejado, com um protótipo aprovado de Login e Home, e vai ser construído em etapas.
+Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** também está completo: o morador, o síndico e o administrador autorizam e cancelam visitantes, a portaria busca as autorizações válidas, registra a entrada e a saída e vê quem está no condomínio, e os dados pessoais dos visitantes são anonimizados 90 dias depois do fim da autorização (LGPD). O front-end está em construção, em etapas, a partir de um protótipo aprovado de Login e Home. O projeto e o design system (tokens, vidro e fundo) já estão prontos, mas ainda não há telas.
 
 Detalhes do que foi feito, pendências e próximos passos estão em [Docs/progresso.md](Docs/progresso.md).
 
@@ -37,7 +37,7 @@ vicino/
 ├── .gitignore
 ├── Docs/        # documentação, decisões de arquitetura (ADRs) e progresso
 ├── backend/     # API REST (Spring Boot)
-└── frontend/    # aplicação web (React com TypeScript), ainda não criada
+└── frontend/    # aplicação web (React com TypeScript, Vite)
 ```
 
 ### Back-end (`backend/src/main/java/br/com/vicino/api`)
@@ -101,6 +101,35 @@ Para só compilar (útil depois de renomear classes ou records):
 ```powershell
 .\mvnw.cmd -q -DskipTests clean compile
 ```
+
+## Como rodar o front-end
+
+Pré-requisito: Node.js 20 ou mais novo (o projeto foi montado com o Node 24).
+
+1. Na pasta `frontend/`, instale as dependências:
+
+```bash
+npm install
+```
+
+2. Copie `frontend/.env.example` para `frontend/.env.local`. Com `VITE_USE_MOCKS=true`, o app usa dados fictícios e não precisa do back-end; com `false`, chama a API real pelo proxy do Vite (`/api` → `http://localhost:8080`).
+
+3. Suba o servidor de desenvolvimento e abra `http://localhost:5173`:
+
+```bash
+npm run dev
+```
+
+Outros comandos:
+
+| Comando | O que faz |
+|---|---|
+| `npm run lint` | ESLint |
+| `npm run build` | Checagem de tipos e build de produção em `dist/` |
+| `npm test` | Testes (Vitest) |
+| `npm run format` | Formata o código com o Prettier |
+
+> No Windows com **Efeitos de transparência** desligado, o navegador pede menos transparência, e o vidro aparece mais opaco que no protótipo ([ADR 0009](Docs/0009-estilo-do-front-end.md)).
 
 ## API
 

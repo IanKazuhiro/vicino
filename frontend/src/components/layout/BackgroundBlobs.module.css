@@ -1,0 +1,30 @@
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  animation: float 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Flutuar bem devagar. Desligado com prefers-reduced-motion. */
+@keyframes float {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(18px, -24px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob {
+    animation: none;
+  }
+}
