@@ -4,7 +4,7 @@ Sistema de gestão de condomínios. O MVP cobre o **agendamento de espaços comu
 
 ## Status
 
-Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** também está completo: o morador, o síndico e o administrador autorizam e cancelam visitantes, a portaria busca as autorizações válidas, registra a entrada e a saída e vê quem está no condomínio, e os dados pessoais dos visitantes são anonimizados 90 dias depois do fim da autorização (LGPD). O front-end ainda não foi iniciado.
+Back-end em desenvolvimento. Os cadastros de **blocos, unidades, usuários e espaços comuns** estão prontos e testados, protegidos por **autenticação JWT** com permissões por perfil, e as senhas são guardadas em hash BCrypt. Cada espaço tem a própria janela de reserva, configurada pelo síndico ou administrador. O módulo de **reservas** está completo: criação com todas as regras do espaço e bloqueio de conflitos no banco, aprovação pelo síndico, cancelamento com prazo, consultas e uma agenda sem dados pessoais. O módulo de **visitantes** também está completo: o morador, o síndico e o administrador autorizam e cancelam visitantes, a portaria busca as autorizações válidas, registra a entrada e a saída e vê quem está no condomínio, e os dados pessoais dos visitantes são anonimizados 90 dias depois do fim da autorização (LGPD). O front-end está planejado, com um protótipo aprovado de Login e Home, e vai ser construído em etapas.
 
 Detalhes do que foi feito, pendências e próximos passos estão em [Docs/progresso.md](Docs/progresso.md).
 
@@ -26,7 +26,7 @@ As permissões de cada perfil estão no [ADR 0004](Docs/0004-perfis-e-permissoes
 | Back-end | Java 25, Spring Boot 4.1.1, Maven, Lombok |
 | Persistência | Spring Data JPA, PostgreSQL, Flyway |
 | Segurança | Spring Security (OAuth2 Resource Server), JWT com HS256, senhas em BCrypt |
-| Front-end | React.js |
+| Front-end | React com TypeScript (Vite), CSS Modules, React Router, TanStack Query, React Hook Form + Zod e lucide-react. Visual "Vizinhança calorosa" com glassmorphism ([ADR 0009](Docs/0009-estilo-do-front-end.md) e [ADR 0010](Docs/0010-arquitetura-do-front-end.md)) |
 | Deploy | Railway |
 
 ## Estrutura do repositório
@@ -37,7 +37,7 @@ vicino/
 ├── .gitignore
 ├── Docs/        # documentação, decisões de arquitetura (ADRs) e progresso
 ├── backend/     # API REST (Spring Boot)
-└── frontend/    # aplicação web (React), ainda não criada
+└── frontend/    # aplicação web (React com TypeScript), ainda não criada
 ```
 
 ### Back-end (`backend/src/main/java/br/com/vicino/api`)
@@ -133,6 +133,9 @@ Corpos, validações, permissões e códigos de resposta: [Docs/api.md](Docs/api
 | [ADR 0006](Docs/0006-espacos-comuns-e-janela-de-reserva.md) | Espaços comuns e janela de reserva configurável |
 | [ADR 0007](Docs/0007-reservas.md) | Reservas: permissões, ciclo de vida, conflito no banco, fuso e agenda |
 | [ADR 0008](Docs/0008-visitantes-e-lgpd.md) | Visitantes: autorização por período, entrada e saída, busca da portaria e anonimização (LGPD) |
+| [ADR 0009](Docs/0009-estilo-do-front-end.md) | Estilo do front-end: CSS Modules, paleta "Vizinhança calorosa", glassmorphism e layout |
+| [ADR 0010](Docs/0010-arquitetura-do-front-end.md) | Arquitetura do front-end: contratos híbridos com o back-end, mocks, sessão e proxy do Vite |
+| [Protótipo](Docs/prototipo/) | Login e Home aprovados e o guia completo do front-end |
 
 As decisões de arquitetura (ADRs) ficam em `Docs/`, um arquivo por decisão, numerados em sequência.
 

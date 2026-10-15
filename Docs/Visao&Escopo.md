@@ -36,6 +36,8 @@ No sistema, esses atores correspondem aos perfis `MORADOR`, `PORTARIA`, `SINDICO
 - Mural de avisos e notificações push
 - Múltiplos condomínios (multi-tenancy)
 
+O protótipo do front-end tem telas de encomendas, mural de avisos e notificações. No MVP elas existem **só como demonstração**, com dados fictícios e sem back-end, e esses temas continuam fora do escopo ([ADR 0010](0010-arquitetura-do-front-end.md)).
+
 ## Premissas
 
 - Aplicação web responsiva, usada em celular e desktop

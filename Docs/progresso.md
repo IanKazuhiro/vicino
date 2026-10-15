@@ -7,11 +7,35 @@ Registro do que foi feito a cada commit, do que está pendente e dos próximos p
 - **Back-end:** cadastro de blocos, unidades e usuários (criar, listar e buscar por id), de **espaços comuns** (criar, editar, listar e buscar por id) e o módulo completo de **reservas** (criar, aprovar, recusar, cancelar, detalhe, minhas, listagem do síndico e agenda). Tudo testado no Postman; as reservas, com uma coleção automatizada.
 - **Segurança:** login com JWT (`POST /auth/login`) e controle de acesso por perfil. Cadastros e edições só para `SINDICO` e `ADMINISTRADOR`; consultas para qualquer usuário autenticado, com regras de visibilidade nas reservas (ver [ADR 0004](0004-perfis-e-permissoes.md), [ADR 0005](0005-autenticacao-jwt.md) e [ADR 0007](0007-reservas.md)). Senhas salvas com hash BCrypt.
 - **Visitantes:** módulo completo. Autorizações (criar, "minhas" e cancelar), rotas da portaria (busca, entrada, saída e presentes) e anonimização diária dos dados pessoais pela LGPD ([ADR 0008](0008-visitantes-e-lgpd.md)). Testado com duas coleções do Postman e com dados inseridos no banco.
-- **Front-end:** não iniciado.
+- **Front-end:** planejado, ainda sem código.
+  - **Visual:** protótipo aprovado de Login e Home em [`prototipo/`](prototipo/), com a paleta "Vizinhança calorosa" e glassmorphism ([ADR 0009](0009-estilo-do-front-end.md)).
+  - **Arquitetura:** React com TypeScript (Vite) e CSS Modules, com contratos híbridos: as telas com back-end usam a API real, e as outras só mock ([ADR 0010](0010-arquitetura-do-front-end.md)).
+  - **Construção:** em 10 etapas, com o código escrito pelo Claude e os commits feitos pelo Ian.
 
 ## Histórico de commits
 
-### `pendente` (2026-10-14): visitantes, parte 4 (LGPD e fechamento do módulo)
+### `pendente` (2026-10-14): front-end, etapa 0 (protótipo e decisões)
+
+- **`Docs/prototipo/`:** o protótipo aprovado (`prototipo-login.html` e `prototipo-home.html`) e o guia do front-end (`PROMPT-FRONTEND-VICINO.md`), que são a fonte da verdade visual.
+- **ADR 0009 (estilo do front-end):**
+  - **tecnologia:** React, TypeScript, Vite, **CSS Modules** com variáveis CSS, lucide-react, Fraunces e Manrope;
+  - **visual "Vizinhança calorosa":** paleta off-white, oliva, terracota e areia, com o `--color-accent` `#AD5D2F` escurecido para contraste AA;
+  - **glassmorphism:** receitas glass, glass-strong, glass-dark e glass-nav, com fallback quase opaco sem `backdrop-filter` ou com `prefers-reduced-transparency`, e manchas desfocadas no fundo;
+  - **layout:** barra inferior no celular e lateral a partir de 1024 px.
+  
+  Uma primeira versão, com Tailwind e um visual plano verde-água escolhido entre três direções, foi substituída no mesmo dia pelo protótipo, antes de qualquer código. O registro está na seção "Revisão" do ADR.
+- **ADR 0010 (arquitetura do front-end):**
+  - **contratos híbridos:** login, espaços, reservas e visitantes usam as rotas e os DTOs reais; encomendas, avisos, notificações, primeiro acesso e esqueci a senha existem só como mock;
+  - **adaptações das telas ao back-end:** horários pela `/reservas/agenda` e status do visitante calculado pelo período;
+  - **camada de serviços:** real ou mock por `VITE_USE_MOCKS`;
+  - **sessão:** `localStorage` ou `sessionStorage`, 401 leva ao login, e `GET /usuarios/me` novo no back-end;
+  - **proxy do Vite:** dispensa o CORS no desenvolvimento;
+  - **escopo:** só o morador.
+- **Visão e Escopo:** encomendas, mural e notificações aparecem só como demonstração e continuam fora do MVP.
+- **README:** a stack do front-end, os ADRs 0009 e 0010 no índice e a pasta do protótipo.
+- Registro do hash `21e22a8` na entrada da parte 4 de visitantes.
+
+### `21e22a8` (2026-10-14): visitantes, parte 4 (LGPD e fechamento do módulo)
 
 - **`application.properties`:** `vicino.visitantes.anonimizacao-cron=0 0 3 * * *` (todo dia às 03:00), ao lado da `retencao-dias=90` criada na parte 1.
 - **`SchedulingConfig`:** `@EnableScheduling`, o primeiro agendamento do projeto. Sem ele, o Spring ignora o `@Scheduled` em silêncio.
@@ -349,5 +373,12 @@ Feito nesta parte:
 
 ## Próximos passos
 
-1. **Definir o próximo passo:** os dois módulos do MVP estão prontos no back-end. Os caminhos possíveis são as pendências desta lista (tratamento global de erros, testes automatizados, `GET /usuarios/me`), o deploy no Railway e o início do front-end.
-2. **Pendências pequenas** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.
+1. **Front-end, etapas 1 a 10** ([ADR 0010](0010-arquitetura-do-front-end.md)):
+   - setup e design tokens;
+   - componentes base;
+   - camada de API, mocks e sessão, incluindo o **`GET /usuarios/me`** no back-end;
+   - autenticação;
+   - telas: Home, reservas, visitantes, extras (só mock) e perfil;
+   - README.
+2. **Pendências pequenas do back-end** desta lista (bloco, `readOnly`, `GET /espacos` só ativos), que podem entrar junto de outro commit.
+3. **Deploy no Railway**, decidindo junto a origem do front-end (mesma origem ou CORS).
